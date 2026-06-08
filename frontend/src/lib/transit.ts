@@ -17,27 +17,31 @@ const writer = transit.writer('json');
 /** Recursively convert a decoded transit value into plain JS. */
 function toPlain(v: unknown): unknown {
 	if (v == null) return v;
-	// transit keyword / symbol -> string name
+	// transit keyword / symbol -> string. Preserve the namespace so a namespaced
+	// keyword like :hello/ok or :lobby/state round-trips to "hello/ok" /
+	// "lobby/state" rather than just its name ("ok" / "state").
 	if (transit.isKeyword(v) || transit.isSymbol(v)) {
-		return (v as { name(): string }).name();
+		const kw = v as { name(): string; namespace?(): string | null };
+		const ns = kw.namespace?.();
+		return ns ? `${ns}/${kw.name()}` : kw.name();
 	}
-	// transit map -> plain object (keys may themselves be keywords)
-	if (transit.map && v instanceof transit.map().constructor) {
-		const out: Record<string, unknown> = {};
-		(v as { forEach(f: (val: unknown, key: unknown) => void): void }).forEach(
-			(val, key) => {
-				out[String(toPlain(key))] = toPlain(val);
-			}
-		);
-		return out;
-	}
-	// transit set -> array
+	if (Array.isArray(v)) return v.map(toPlain);
+	// transit set -> array (a TransitSet iterates values with forEach)
 	if (transit.isSet?.(v)) {
 		const arr: unknown[] = [];
 		(v as { forEach(f: (x: unknown) => void): void }).forEach((x) => arr.push(toPlain(x)));
 		return arr;
 	}
-	if (Array.isArray(v)) return v.map(toPlain);
+	// transit map -> plain object. TransitMap (and ArrayMap) expose a
+	// `.forEach((value, key) => ...)`; that duck-type is more reliable than
+	// instanceof against a freshly-constructed transit.map().
+	if (transit.isMap?.(v) || typeof (v as { forEach?: unknown }).forEach === 'function') {
+		const out: Record<string, unknown> = {};
+		(v as { forEach(f: (val: unknown, key: unknown) => void): void }).forEach((val, key) => {
+			out[String(toPlain(key))] = toPlain(val);
+		});
+		return out;
+	}
 	return v;
 }
 
