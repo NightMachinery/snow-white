@@ -1,0 +1,55 @@
+/* Tailwind v4 is configured CSS-first: a single @import pulls in the engine,
+   and @theme defines our design tokens (colors, fonts, radii) which become
+   utility classes like `bg-snow`, `text-ink`, `font-display`, etc.
+   See docs/frontend-svelte.md for how this replaces the old tailwind.config.js. */
+@import 'tailwindcss';
+
+@theme {
+	/* A cohesive fairy-tale palette: snow whites, ink, and an apple-red accent. */
+	--color-snow: oklch(0.98 0.005 280);
+	--color-frost: oklch(0.94 0.01 280);
+	--color-ink: oklch(0.21 0.03 280);
+	--color-mist: oklch(0.55 0.02 280);
+
+	--color-apple-50: oklch(0.97 0.02 20);
+	--color-apple-100: oklch(0.93 0.05 20);
+	--color-apple-400: oklch(0.68 0.18 22);
+	--color-apple-500: oklch(0.6 0.21 24);
+	--color-apple-600: oklch(0.52 0.2 25);
+
+	--color-forest: oklch(0.55 0.12 155);
+	--color-dusk: oklch(0.45 0.09 285);
+
+	--font-display: 'Fraunces', ui-serif, Georgia, serif;
+	--font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+	--radius-card: 1.25rem;
+}
+
+/* Dark mode driven by a `.dark` class on <html> (toggled in JS). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+	color-scheme: light dark;
+}
+
+html {
+	font-family: var(--font-sans);
+	background: var(--color-snow);
+	color: var(--color-ink);
+}
+
+html.dark {
+	background: var(--color-ink);
+	color: var(--color-snow);
+}
+
+/* Respect users who prefer less motion. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}
