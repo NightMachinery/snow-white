@@ -1,0 +1,23 @@
+# Clojure
+backend/.cpcache/
+backend/target/
+backend/.nrepl-port
+backend/.clj-kondo/.cache/
+backend/.lsp/
+
+# Node / SvelteKit
+frontend/node_modules/
+frontend/.svelte-kit/
+frontend/build/
+frontend/.vite/
+node_modules/
+
+# Editors / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Env
+.env
+.env.local
