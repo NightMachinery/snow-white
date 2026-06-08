@@ -1,0 +1,73 @@
+(ns snow-white.game-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [snow-white.game :as g]))
+
+(defn- lobby-with-players
+  "Build a lobby with n joined+seated players :p0..:pn-1, owned by :p0."
+  [n]
+  (reduce (fn [l i] (g/join l (keyword (str "p" i)) (str "Player" i)))
+          (g/new-lobby :p0 "test")
+          (range n)))
+
+(deftest joining-and-seating
+  (let [l (lobby-with-players 4)]
+    (is (= 4 (count (:players l))))
+    (testing "players auto-seat in lobby phase and become active"
+      (is (= 4 (g/active-count l)))
+      (is (every? :seat (vals (:players l)))))))
+
+(deftest duplicate-names-get-numbers
+  (let [l (-> (g/new-lobby :a "t")
+              (g/join :a "Sam")
+              (g/join :b "Sam"))]
+    (is (= "Sam"   (get-in l [:players :a :display-name])))
+    (is (= "Sam 2" (get-in l [:players :b :display-name])))))
+
+(deftest spectate-frees-seat
+  (let [l (-> (lobby-with-players 4) (g/spectate :p1))]
+    (is (= 3 (g/active-count l)))
+    (is (nil? (get-in l [:players :p1 :seat])))))
+
+(deftest start-requires-four
+  (is (= :lobby (:game-state (g/start-game (lobby-with-players 3)))))
+  (is (= :mayor-pick (:game-state (g/start-game (lobby-with-players 4))))))
+
+(deftest start-deals-roles-and-mayor
+  (let [l (g/start-game (lobby-with-players 5))]
+    (is (= :mayor-pick (:game-state l)))
+    (is (some? (:mayor l)))
+    (is (some? (:seer l)))
+    (is (= 1 (count (:werewolves l))))
+    (is (= 2 (count (:words l)))))) ; pick-count default is 2
+
+(deftest full-game-word-guessed
+  (let [l (g/start-game (lobby-with-players 5))
+        mayor (:mayor l)
+        word (first (:words l))
+        ;; an asker who is not the mayor
+        asker (first (remove #{mayor} (keys (:players l))))
+        l (g/mayor-pick l mayor word)
+        _ (is (= :question-round (:game-state l)))
+        l (g/ask-question l asker "Is it alive?")
+        l (g/answer-question l mayor :yes)
+        _ (is (= (dec g/start-tokens) (:tokens l)))
+        l (g/ask-question l asker "Is it the word?")
+        l (g/answer-question l mayor :correct)]
+    (is (= :word-guessed (:game-state l)))
+    (is (some? (:correct l)))))
+
+(deftest wolf-vote-resolves
+  (let [l (-> (lobby-with-players 5) g/start-game)
+        l (assoc l :game-state :word-guessed) ; force into guessed state
+        wolf (first (:werewolves l))
+        l (g/wolf-vote l wolf (:seer l))
+        l (g/finalize l)]
+    (is (= :end-game (:game-state l)))
+    (is (= :wolves (:winner l)))))
+
+(deftest reset-clears-round
+  (let [l (-> (lobby-with-players 5) g/start-game (g/reset-game))]
+    (is (= :lobby (:game-state l)))
+    (is (nil? (:mayor l)))
+    (is (empty? (:werewolves l)))
+    (is (= 5 (count (filter :seat (vals (:players l)))))))) ; seats preserved
