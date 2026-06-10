@@ -102,7 +102,7 @@ In production, the main Caddy site looks conceptually like this:
 
 ```caddyfile
 https://snow-white.pinky.lilf.ir {
-    @backend path /api/* /ws /health
+    @backend path /api /api/* /ws /health
     reverse_proxy @backend localhost:38931
 
     root * /path/to/repo/frontend/build

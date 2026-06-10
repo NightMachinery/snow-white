@@ -4,6 +4,7 @@
 	import { conn } from '$lib/ws.svelte';
 	import { identity } from '$lib/identity.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import ErrorNotice from '$lib/components/ErrorNotice.svelte';
 	import RoomHeader from '$lib/components/RoomHeader.svelte';
 	import LobbyScreen from '$lib/components/LobbyScreen.svelte';
 	import MayorPick from '$lib/components/MayorPick.svelte';
@@ -30,7 +31,10 @@
 <main class="mx-auto flex min-h-dvh max-w-5xl flex-col px-4 py-4 sm:px-6">
 	{#if conn.error && !lobby}
 		<div class="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-			<p class="font-display text-2xl">Hmm — {conn.error}</p>
+			<div class="flex flex-col items-center gap-2">
+				<p class="font-display text-2xl">Hmm</p>
+				<ErrorNotice message={conn.error} detail={conn.errorDetail} centered />
+			</div>
 			<button
 				onclick={() => goto('/')}
 				class="rounded-xl bg-apple-500 px-5 py-2.5 font-medium text-white">Back home</button

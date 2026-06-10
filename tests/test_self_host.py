@@ -21,6 +21,7 @@ class SelfHostTests(unittest.TestCase):
         block = self_host.render_caddy_block(site, self_host.Mode.PROD, self_host.Ports(backend=38933, frontend_dev=38934))
         self.assertIn("http://game.example.test", block)
         self.assertIn("redir https://game.example.test{uri} permanent", block)
+        self.assertIn("@backend path /api /api/* /ws /health", block)
         self.assertIn("reverse_proxy @backend localhost:38933", block)
         self.assertIn("root * ", block)
         self.assertIn("try_files {path} /index.html", block)

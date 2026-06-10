@@ -178,7 +178,7 @@ def render_caddy_block(site: Site, mode: Mode, ports: Ports = Ports()) -> str:
 }}
 
 {site.origin} {{
-	@backend path /api/* /ws /health
+	@backend path /api /api/* /ws /health
 	reverse_proxy @backend localhost:{ports.backend}
 
 {frontend}

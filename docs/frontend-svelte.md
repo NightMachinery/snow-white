@@ -122,6 +122,11 @@ game logic and never drifts from the server. The room page is a pure switch over
 {/if}
 ```
 
+HTTP helpers in `api.ts` and the WebSocket client both act as small error
+boundaries. They log technical details with `console.error`, keep the visible UI
+message human-readable, and attach a copyable diagnostic string for mobile users
+who cannot easily inspect the JavaScript console.
+
 ## 3. Templates: blocks, events, snippets
 
 - **Keyed each** (always key by a stable id, never the index):

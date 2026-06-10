@@ -21,6 +21,7 @@ class Connection {
 	lobby = $state<Lobby | null>(null);
 	status = $state<Status>('idle');
 	error = $state<string | null>(null);
+	errorDetail = $state<string | null>(null);
 
 	#ws: WebSocket | null = null;
 	#room = '';
@@ -59,19 +60,56 @@ class Connection {
 		};
 
 		ws.onmessage = (ev) => {
-			const msg = decode(ev.data as string) as ServerMessage;
+			let msg: ServerMessage;
+			try {
+				msg = decode(ev.data as string) as ServerMessage;
+			} catch (cause) {
+				const errorDetail = [
+					'Snow White WebSocket message could not be decoded',
+					`room: ${this.#room}`,
+					`data: ${String(ev.data)}`,
+					`cause: ${cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause)}`
+				].join('\n');
+				console.error('Snow White WebSocket message could not be decoded', {
+					room: this.#room,
+					data: ev.data,
+					cause,
+					errorDetail
+				});
+				this.status = 'error';
+				this.error = 'The server sent an unexpected message.';
+				this.errorDetail = errorDetail;
+				return;
+			}
 			if (msg.type === 'lobby/state') {
 				this.lobby = msg.lobby;
 				this.error = null;
+				this.errorDetail = null;
 			} else if (msg.type === 'hello/ok') {
 				identity.setAuthId(msg['auth-id']);
 			} else if (msg.type === 'error') {
 				this.error = msg.msg;
+				this.errorDetail = null;
 			}
 		};
 
-		ws.onerror = () => {
+		ws.onerror = (event) => {
+			const errorDetail = [
+				'Snow White WebSocket connection error',
+				`room: ${this.#room}`,
+				`url: ${ws.url}`,
+				`readyState: ${ws.readyState}`
+			].join('\n');
+			console.error('Snow White WebSocket connection error', {
+				room: this.#room,
+				url: ws.url,
+				readyState: ws.readyState,
+				event,
+				errorDetail
+			});
 			this.status = 'error';
+			this.error = 'Connection error. Trying to reconnect...';
+			this.errorDetail = errorDetail;
 		};
 
 		ws.onclose = () => {
@@ -101,6 +139,8 @@ class Connection {
 		this.#ws = null;
 		this.lobby = null;
 		this.status = 'idle';
+		this.error = null;
+		this.errorDetail = null;
 	}
 }
 

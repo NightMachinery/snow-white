@@ -3,6 +3,7 @@
 	import { createRoom, randomRoomName, roomExists } from '$lib/api';
 	import { identity } from '$lib/identity.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import ErrorNotice from '$lib/components/ErrorNotice.svelte';
 	import Apple from '@lucide/svelte/icons/apple';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
 
@@ -10,6 +11,7 @@
 	let room = $state('');
 	let busy = $state(false);
 	let error = $state('');
+	let errorDetail = $state('');
 
 	const nameOk = $derived(name.trim().length > 0);
 
@@ -17,12 +19,16 @@
 		if (!nameOk || busy) return;
 		busy = true;
 		error = '';
+		errorDetail = '';
 		identity.setName(name.trim());
 		const r = room.trim() || randomRoomName();
 		const res = await createRoom(identity.authId, r);
 		busy = false;
 		if (res.ok) goto(`/room/${encodeURIComponent(r)}`);
-		else error = String(res.error ?? 'Could not create room');
+		else {
+			error = String(res.error ?? 'Could not create room');
+			errorDetail = typeof res.errorDetail === 'string' ? res.errorDetail : '';
+		}
 	}
 
 	async function join() {
@@ -30,14 +36,19 @@
 		const r = room.trim();
 		if (!r) {
 			error = 'Enter a room name to join';
+			errorDetail = '';
 			return;
 		}
 		busy = true;
 		error = '';
+		errorDetail = '';
 		identity.setName(name.trim());
-		const exists = await roomExists(r);
+		const res = await roomExists(r);
 		busy = false;
-		if (exists) goto(`/room/${encodeURIComponent(r)}`);
+		if ('error' in res) {
+			error = res.error;
+			errorDetail = res.errorDetail ?? '';
+		} else if (res.exists) goto(`/room/${encodeURIComponent(r)}`);
 		else error = `Room “${r}” was not found`;
 	}
 </script>
@@ -85,7 +96,7 @@
 		</label>
 
 		{#if error}
-			<p class="text-sm text-apple-500">{error}</p>
+			<ErrorNotice message={error} detail={errorDetail} />
 		{/if}
 
 		<div class="mt-1 flex flex-col gap-2 sm:flex-row">
