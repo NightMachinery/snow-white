@@ -21,6 +21,22 @@
 ;; channel -> {:auth-id .. :lobby ..}    (who is on each socket)
 (defonce conns (atom {}))
 
+;; lobby-name -> epoch-ms when it last went empty (everyone offline). A lobby
+;; that is currently occupied has no entry here. The reaper (below) deletes
+;; lobbies that have stayed empty longer than `empty-ttl-ms`. This lets a room
+;; survive everyone briefly disconnecting (page refresh, flaky wifi, a pause
+;; between rounds) and even sit idle overnight, instead of vanishing the instant
+;; the last socket closes.
+(defonce emptied-at (atom {}))
+
+(def empty-ttl-ms
+  "How long a lobby with nobody online is kept before it is reaped."
+  (* 14 24 60 60 1000)) ; 14 days
+
+(def ^:private reap-period-ms
+  "How often the reaper wakes up to look for expired lobbies."
+  (* 60 60 1000)) ; hourly
+
 ;; ---------------------------------------------------------------------------
 ;; Lobby lifecycle
 ;; ---------------------------------------------------------------------------
@@ -36,10 +52,71 @@
   (when (and owner-id (seq name) (not (lobby-exists? name)))
     (let [a (atom (game/new-lobby owner-id name))]
       (swap! registry assoc name a)
+      ;; Start the retention clock immediately: a lobby created via HTTP but never
+      ;; joined still gets reaped after the TTL. The first connect cancels it via
+      ;; `mark-occupied!`.
+      (swap! emptied-at assoc name (System/currentTimeMillis))
       a)))
 
 (defn destroy-lobby! [name]
-  (swap! registry dissoc name))
+  (swap! registry dissoc name)
+  (swap! emptied-at dissoc name))
+
+;; ---------------------------------------------------------------------------
+;; Empty-lobby retention (TTL) + reaper
+;; ---------------------------------------------------------------------------
+
+(defn mark-empty!
+  "Record that `name` has just become empty (nobody online), starting its TTL
+  clock. Idempotent: keeps the *earliest* empty time if already marked."
+  [name now-ms]
+  (swap! emptied-at update name (fn [t] (or t now-ms))))
+
+(defn mark-occupied!
+  "Cancel `name`'s TTL clock because someone is connected again."
+  [name]
+  (swap! emptied-at dissoc name))
+
+(defn expired-lobbies
+  "Names of lobbies that have been empty for longer than `empty-ttl-ms` as of
+  `now-ms`. Pure read over the `emptied-at` snapshot."
+  [now-ms]
+  (->> @emptied-at
+       (filter (fn [[_ t]] (>= (- now-ms t) empty-ttl-ms)))
+       (map key)))
+
+(defn reap-expired!
+  "Destroy every lobby whose empty TTL has elapsed. Returns the names reaped."
+  [now-ms]
+  (let [stale (expired-lobbies now-ms)]
+    (doseq [name stale] (destroy-lobby! name))
+    stale))
+
+(defonce ^:private reaper (atom nil))
+
+(defn start-reaper!
+  "Launch a background thread that periodically reaps expired empty lobbies.
+  Safe to call repeatedly (no-op if already running). Returns the thread."
+  []
+  (or @reaper
+      (let [t (Thread.
+               (fn []
+                 (try
+                   (loop []
+                     (Thread/sleep (long reap-period-ms))
+                     (reap-expired! (System/currentTimeMillis))
+                     (recur))
+                   (catch InterruptedException _ nil)))
+               "snow-white-lobby-reaper")]
+        (.setDaemon t true)
+        (.start t)
+        (reset! reaper t)
+        t)))
+
+(defn stop-reaper! []
+  (when-let [t @reaper]
+    (.interrupt t)
+    (reset! reaper nil)))
 
 (defn update-lobby!
   "Apply pure `f` to the named lobby's state: `(swap! lobby-atom f args...)`.

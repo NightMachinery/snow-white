@@ -112,6 +112,7 @@
     (if (reg/lobby-exists? lobby)
       (do
         (reg/register-conn! ch auth-id lobby)
+        (reg/mark-occupied! lobby)            ; cancel any pending retention TTL
         (reg/update-lobby! lobby game/join auth-id (or name "Player"))
         ;; tell the client its resolved auth-id (in case the server minted one)
         (http/send! ch (->transit {:type :hello/ok :auth-id auth-id}))
@@ -135,11 +136,14 @@
           ;; mark offline only if no other socket holds this identity
           (when-not (reg/auth-still-online? lobby auth-id)
             (reg/update-lobby! lobby game/mark-offline auth-id))
-          ;; destroy empty lobbies
+          ;; An empty lobby is no longer destroyed immediately — instead we start
+          ;; its retention clock, so the room survives refreshes, brief drops, and
+          ;; idle gaps. The background reaper deletes it only after it has stayed
+          ;; empty for `reg/empty-ttl-ms` (14 days).
           (let [a (reg/get-lobby-atom lobby)]
-            (if (and a (not (game/any-online? @a)))
-              (reg/destroy-lobby! lobby)
-              (broadcast! lobby))))))}))
+            (when (and a (not (game/any-online? @a)))
+              (reg/mark-empty! lobby (System/currentTimeMillis)))
+            (broadcast! lobby)))))}))
 
 ;; ---------------------------------------------------------------------------
 ;; HTTP routes
@@ -198,10 +202,12 @@
   ([port]
    (when @server (@server))
    (reset! server (http/run-server app {:port port :legacy-return-value? false}))
+   (reg/start-reaper!)                    ; reap lobbies left empty past the TTL
    (println (str "Snow White server on http://localhost:" port))
    @server))
 
 (defn stop! []
+  (reg/stop-reaper!)
   (when-let [s @server]
     (http/server-stop! s)
     (reset! server nil)

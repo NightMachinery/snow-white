@@ -194,9 +194,37 @@ This is the payoff of keeping the core pure: the feedback loop is milliseconds.
 ## 6. Connection lifecycle & cleanup
 
 `on-close` (in `server.clj`) marks a player offline only if no *other* socket
-holds their identity (multi-tab safe), and destroys a lobby once nobody is
-online — mirroring the original's ephemeral rooms. All of this is just more
-`swap!`s over pure functions (`game/mark-offline`, `game/any-online?`).
+holds their identity (multi-tab safe). All of this is just more `swap!`s over
+pure functions (`game/mark-offline`, `game/any-online?`).
+
+### Lobby retention (the 14-day TTL + reaper)
+
+Originally a lobby was destroyed the instant the last socket closed. That made
+rooms *too* ephemeral: a single refresh, a flaky connection, or a pause between
+rounds could evaporate a game. Now rooms **linger for 14 days after going empty**,
+then a background reaper collects them.
+
+The mechanism lives in `registry.clj` and is deliberately tiny:
+
+- An `emptied-at` atom maps `lobby-name -> epoch-ms when it last went empty`. A
+  lobby that is currently occupied has **no** entry; an empty one is timestamped.
+- `mark-empty!` (called from `on-close` when `not (any-online? ...)`) starts the
+  clock, keeping the *earliest* empty time if already set. `mark-occupied!`
+  (called from `on-connect`) simply `dissoc`s the entry — rejoining cancels the
+  countdown. Creation also stamps `emptied-at`, so a room made via HTTP but never
+  joined is still eventually reaped.
+- A daemon thread (`start-reaper!`, launched in `server/start!`) wakes hourly and
+  calls `reap-expired!`, which `destroy-lobby!`s every lobby whose empty span has
+  exceeded `empty-ttl-ms` (14 days).
+
+> **Learning note — pure core, scheduled edge.** Notice the split: *deciding* what
+> is expired (`expired-lobbies`, a pure read over a snapshot) is separate from the
+> *effect* of deleting it and from the *thread* that drives the clock. The reaper
+> is a daemon thread so it never blocks JVM shutdown, and `start-reaper!` is
+> idempotent (returns the existing thread if already running) so reloading the
+> namespace in the REPL doesn't spawn a second one. This is the same
+> "pure-functions-with-mutation-only-at-the-edge" shape as the game rules, applied
+> to housekeeping.
 
 ---
 
