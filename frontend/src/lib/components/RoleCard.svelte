@@ -8,12 +8,28 @@
 	let { lobby }: { lobby: Lobby } = $props();
 	const role = $derived(lobby.you.role);
 	const isMayor = $derived(lobby.you['is-mayor']);
+	const knowsWord = $derived(lobby.you['knows-word']);
 
-	const blurb: Record<string, string> = {
-		villager: "You don't know the word. Ask sharp questions and watch who misleads.",
-		seer: 'You know the word. Help your village — but stay hidden from the wolves.',
-		werewolf: 'You know the word and your fellow wolves. Mislead — but blend in.'
-	};
+	// The blurb must respect *what you actually know*, not just your role. The Mayor
+	// always knows the word (they chose it) and answers questions rather than asking
+	// them — so a villager-Mayor must not be told "you don't know the word".
+	const blurb = $derived.by(() => {
+		if (isMayor) {
+			if (role === 'werewolf')
+				return 'You picked the word and you run the table — answer to mislead, and blend in.';
+			if (role === 'seer')
+				return 'You picked the word and you run the table — nudge the village without exposing yourself.';
+			return 'You picked the word and you run the table — answer the questions and keep things fair.';
+		}
+		switch (role) {
+			case 'seer':
+				return 'You know the word. Help your village — but stay hidden from the wolves.';
+			case 'werewolf':
+				return 'You know the word and your fellow wolves. Mislead — but blend in.';
+			default:
+				return "You don't know the word. Ask sharp questions and watch who misleads.";
+		}
+	});
 </script>
 
 {#if role}
@@ -36,7 +52,7 @@
 			<p class="font-display text-lg leading-tight">
 				You are the {roleLabel[role]}{#if isMayor}<span class="text-apple-500"> · Mayor</span>{/if}
 			</p>
-			<p class="text-sm text-mist">{blurb[role]}</p>
+			<p class="text-sm text-mist">{blurb}</p>
 		</div>
 	</div>
 {/if}
