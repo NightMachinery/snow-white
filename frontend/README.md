@@ -1,42 +1,30 @@
-# sv
+# Snow White frontend
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+This is the SvelteKit 5 client for Snow White. It is built as a static app so
+Caddy can serve production files directly.
 
-## Creating a project
+## Development
 
-If you're seeing this, you've probably already done this step. Congrats!
+From the repo root, prefer:
 
-```sh
-# create a new project
-npx sv create my-app
+```bash
+./self_host.py dev-start
 ```
 
-To recreate this project with the same configuration:
+That starts the Clojure backend in a REPL tmux session and runs Vite with hot
+reload.
 
-```sh
-# recreate this project
-npx sv@0.15.4 create --template minimal --types ts --no-install .
+For frontend-only checks:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm check
+pnpm build
 ```
 
-## Developing
+## Production build
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+`pnpm build` writes static files to `frontend/build`. In production, Caddy serves
+that directory and proxies `/api/*`, `/ws`, and `/health` to the Clojure backend.
 
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+Fonts are vendored under `static/fonts`; do not add runtime Google Fonts links.

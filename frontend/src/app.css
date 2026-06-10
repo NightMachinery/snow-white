@@ -4,6 +4,63 @@
    See docs/frontend-svelte.md for how this replaces the old tailwind.config.js. */
 @import 'tailwindcss';
 
+@font-face {
+	font-family: 'Fraunces';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('/fonts/fraunces-400.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'Fraunces';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url('/fonts/fraunces-500.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'Fraunces';
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url('/fonts/fraunces-600.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'Fraunces';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url('/fonts/fraunces-700.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'Inter';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('/fonts/inter-400.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'Inter';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url('/fonts/inter-500.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'Inter';
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url('/fonts/inter-600.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'Inter';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url('/fonts/inter-700.ttf') format('truetype');
+}
+
 @theme {
 	/* A cohesive fairy-tale palette: snow whites, ink, and an apple-red accent. */
 	--color-snow: oklch(0.98 0.005 280);

@@ -10,10 +10,33 @@
 		$props();
 
 	let copied = $state(false);
+
+	function legacyCopy(text: string): boolean {
+		const textarea = document.createElement('textarea');
+		textarea.value = text;
+		textarea.setAttribute('readonly', '');
+		textarea.style.position = 'fixed';
+		textarea.style.left = '-9999px';
+		document.body.appendChild(textarea);
+		textarea.select();
+		const ok = document.execCommand('copy');
+		document.body.removeChild(textarea);
+		return ok;
+	}
+
 	async function copyLink() {
-		await navigator.clipboard.writeText(location.href);
-		copied = true;
-		setTimeout(() => (copied = false), 1500);
+		try {
+			if (navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(location.href);
+			} else if (!legacyCopy(location.href)) {
+				throw new Error('copy failed');
+			}
+			copied = true;
+			setTimeout(() => (copied = false), 1500);
+		} catch {
+			location.hash = '';
+			prompt('Copy invite link', location.href);
+		}
 	}
 </script>
 
