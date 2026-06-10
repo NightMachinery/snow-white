@@ -28,7 +28,7 @@ links are app routes, not deployment origins.
 
 `setup [url]` stops existing Snow White tmux sessions, installs frontend
 dependencies, builds the static app, writes the Caddy block, reloads Caddy, and
-starts production.
+starts production in a backend REPL tmux session.
 
 Frontend commands run through `zsh`, call `nvm-load`, and then `nvm use 24`
 from `frontend/.nvmrc`. This is deliberate: current `pnpm` requires a modern
@@ -42,11 +42,12 @@ the package registry.
 
 `redeploy [url]` is the normal "ship latest local changes" command. It stops any
 prod or dev sessions, runs `pnpm install --frozen-lockfile`, rebuilds the
-frontend, refreshes Caddy, and starts production.
+frontend, refreshes Caddy, and starts production in a backend REPL tmux session.
 
 `start [url]` switches Caddy to production mode and starts only the Clojure
-backend. Caddy serves `frontend/build` directly, so there is no Node static file
-server in production. If `frontend/build` is missing, `start` builds it first.
+backend REPL tmux session. Caddy serves `frontend/build` directly, so there is
+no Node static file server in production. If `frontend/build` is missing,
+`start` builds it first.
 
 `dev-start [url]` switches Caddy to development mode. It starts:
 
@@ -134,8 +135,8 @@ The script saves the selected runtime ports in `.self-host/config.json`:
 
 Manual backend workflows use the same backend default. `(go)` in the Clojure
 dev REPL starts `:38931`, and `(go 39000)` starts the same server on an explicit
-port. `clj -M:run` defaults to `:38931`, still honors `PORT`, and also accepts a
-port argument.
+port. `clj -M:run` is still available for a one-shot non-REPL server, defaults
+to `:38931`, honors `PORT`, and also accepts a port argument.
 
 tmux sessions:
 
@@ -149,9 +150,9 @@ Attach to a session with:
 tmux attach -t snow-white-dev-backend
 ```
 
-The development backend session is deliberately REPL-driven. It runs `clj -M:dev`
-and then `(go)`, so the live server is the same Clojure process you inspect and
-drive from the REPL.
+Both production and development backend tmux sessions are deliberately
+REPL-driven. They run `clj -M:dev` and then `(go <backend-port>)`, so the live
+server is the same Clojure process you inspect and drive from the REPL.
 
 ## Proxy environment
 

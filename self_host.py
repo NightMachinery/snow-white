@@ -294,13 +294,22 @@ def announce_serving(config: Config) -> None:
     print(f"serving: {config.site.origin}")
 
 
+def backend_repl_commands(session: str, ports: Ports) -> tuple[tuple[str, str], list[str]]:
+    return (session, "clj -M:dev"), ["tmux", "send-keys", "-t", session, f"(go {ports.backend})", "Enter"]
+
+
+def start_backend_repl(session: str, ports: Ports) -> None:
+    (tmux_session, command), send_command = backend_repl_commands(session, ports)
+    tmuxnew(tmux_session, command, cwd=BACKEND, env_args=tmux_env_args())
+    run(send_command)
+
+
 def start_backend_prod(ports: Ports) -> None:
-    tmuxnew(PROD_SESSION, f"clj -M:run {ports.backend}", cwd=BACKEND, env_args=tmux_env_args())
+    start_backend_repl(PROD_SESSION, ports)
 
 
 def start_backend_dev(ports: Ports) -> None:
-    tmuxnew(DEV_BACKEND_SESSION, "clj -M:dev", cwd=BACKEND, env_args=tmux_env_args())
-    run(["tmux", "send-keys", "-t", DEV_BACKEND_SESSION, f"(go {ports.backend})", "Enter"])
+    start_backend_repl(DEV_BACKEND_SESSION, ports)
 
 
 def frontend_dev_command(ports: Ports) -> tuple[str, dict[str, str]]:

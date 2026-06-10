@@ -109,6 +109,11 @@ class SelfHostTests(unittest.TestCase):
         args = self_host.tmux_env_args({"SNOW_BACKEND": "http://localhost:39041"})
         self.assertEqual(args, ["-e", "SNOW_BACKEND=http://localhost:39041"])
 
+    def test_backend_repl_commands_start_dev_repl_and_send_go(self):
+        start, send = self_host.backend_repl_commands("snow-white-backend", self_host.Ports(backend=39051, frontend_dev=39052))
+        self.assertEqual(start, ("snow-white-backend", "clj -M:dev"))
+        self.assertEqual(send, ["tmux", "send-keys", "-t", "snow-white-backend", "(go 39051)", "Enter"])
+
     def test_announce_serving_prints_site_origin(self):
         cfg = self_host.Config(
             site=self_host.parse_site_url("https://game.example.test"),
