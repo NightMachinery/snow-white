@@ -117,11 +117,20 @@
 ;; Player / seat helpers (pure)
 ;; ---------------------------------------------------------------------------
 
+(defn seated?
+  "A seated player is a game participant, even when temporarily offline.
+  Mods explicitly bench absent players to remove them from participation."
+  [player]
+  (boolean (and player (:seat player)
+                (not (:spectator player)))))
+
+(defn seated-count [lobby]
+  (->> lobby :players vals (filter seated?) count))
+
 (defn active?
   "An active player is online, seated, and not spectating."
   [player]
-  (boolean (and player (:online player) (:seat player)
-                (not (:spectator player)))))
+  (boolean (and (seated? player) (:online player))))
 
 (defn active-count [lobby]
   (->> lobby :players vals (filter active?) count))
@@ -190,7 +199,7 @@
   (let [player (get-in lobby [:players auth-id])]
     (if (and (= :lobby (:game-state lobby))
              player (nil? (:seat player))
-             (< (active-count lobby) max-active-players)
+             (< (seated-count lobby) max-active-players)
              (first-free-seat lobby))
       (seat-player lobby auth-id)
       lobby)))
@@ -274,7 +283,7 @@
   (let [player (get-in lobby [:players auth-id])
         target (or seat (first-free-seat lobby))]
     (if (or (nil? player) (nil? target)
-            (and (nil? (:seat player)) (>= (active-count lobby) max-active-players)))
+            (and (nil? (:seat player)) (>= (seated-count lobby) max-active-players)))
       lobby
       (seat-player lobby auth-id target color))))
 
@@ -357,7 +366,7 @@
   (let [player (get-in lobby [:players target-auth])]
     (if (and player
              (nil? (:seat player))
-             (< (active-count lobby) max-active-players)
+             (< (seated-count lobby) max-active-players)
              (first-free-seat lobby))
       (seat-player lobby target-auth)
       lobby)))
@@ -367,13 +376,13 @@
 ;; ---------------------------------------------------------------------------
 
 (defn start-game
-  "Deal roles to active players, choose a Mayor, draw candidate words, and move
-  to :mayor-pick. Returns lobby unchanged if fewer than 4 active players."
+  "Deal roles to seated players, choose a Mayor, draw candidate words, and move
+  to :mayor-pick. Returns lobby unchanged if fewer than 4 seated players."
   [lobby]
-  (let [active-auths (->> (:players lobby) (filter (comp active? val)) (map key) vec)]
-    (if (< (count active-auths) 4)
+  (let [seated-auths (->> (:players lobby) (filter (comp seated? val)) (map key) vec)]
+    (if (< (count seated-auths) 4)
       lobby
-      (let [roles-by-auth (roles/assign-roles active-auths)
+      (let [roles-by-auth (roles/assign-roles seated-auths)
             mayor (roles/choose-mayor roles-by-auth (:mayor-eligibility lobby))
             seer  (some (fn [[a r]] (when (= r :seer) a)) roles-by-auth)
             wolves (->> roles-by-auth (filter #(= :werewolf (val %))) (map key) set)
@@ -381,7 +390,7 @@
                             (-> l
                                 (assoc-in [:players a :role] (roles-by-auth a))
                                 (assoc-in [:players a :mayor] (= a mayor))))
-                          lobby active-auths)]
+                          lobby seated-auths)]
         (assoc lobby
                :game-state :mayor-pick
                :mayor mayor
@@ -492,14 +501,14 @@
     lobby))
 
 (defn village-vote
-  "An active player votes for a suspected wolf (used when the word was NOT
-  guessed). When everyone on the village side has voted, resolve the end."
+  "A seated player votes for a suspected wolf (used when the word was NOT
+  guessed). When everyone seated has voted, resolve the end."
   [lobby voter-auth target-auth]
   (if (and (#{:out-of-time :out-of-tokens} (:game-state lobby))
-           (active? (get-in lobby [:players voter-auth])))
+           (seated? (get-in lobby [:players voter-auth])))
     (let [lobby (update lobby :village-votes conj target-auth)
-          ;; everyone active votes in the village round
-          expected (active-count lobby)]
+          ;; everyone seated votes in the village round, including offline players
+          expected (seated-count lobby)]
       (if (>= (count (:village-votes lobby)) expected)
         (assoc lobby :game-state :end-game)
         lobby))
@@ -511,7 +520,7 @@
   [lobby voter-auth target-auth]
   (if (and (= (:game-state lobby) :word-guessed)
            (contains? (:werewolves lobby) voter-auth)
-           (active? (get-in lobby [:players voter-auth])))
+           (seated? (get-in lobby [:players voter-auth])))
     (let [lobby (update lobby :wolf-votes conj target-auth)]
       (if (>= (count (:wolf-votes lobby)) (count (:werewolves lobby)))
         (assoc lobby :game-state :end-game)

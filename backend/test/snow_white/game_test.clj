@@ -32,6 +32,14 @@
   (is (= :lobby (:game-state (g/start-game (lobby-with-players 3)))))
   (is (= :mayor-pick (:game-state (g/start-game (lobby-with-players 4))))))
 
+(deftest offline-seated-players-count-for-starting
+  (let [l (-> (lobby-with-players 4)
+              (g/mark-offline :p3)
+              g/start-game)]
+    (is (= :mayor-pick (:game-state l)))
+    (is (some? (get-in l [:players :p3 :role]))
+        "offline seated players are dealt in until a mod benches them")))
+
 (deftest start-deals-roles-and-mayor
   (let [l (g/start-game (lobby-with-players 5))]
     (is (= :mayor-pick (:game-state l)))
@@ -64,6 +72,29 @@
         l (g/finalize l)]
     (is (= :end-game (:game-state l)))
     (is (= :wolves (:winner l)))))
+
+(deftest village-vote-waits-for-offline-seated-players
+  (let [l (-> (lobby-with-players 4)
+              (g/mark-offline :p3)
+              g/start-game
+              (assoc :game-state :out-of-time))
+        voters (take 3 (remove #{:p3} (keys (:players l))))
+        l (reduce #(g/village-vote %1 %2 :p0) l voters)]
+    (is (= :out-of-time (:game-state l))
+        "offline seated players remain in the vote quorum")
+    (is (= :end-game (:game-state (g/village-vote l :p3 :p0))))))
+
+(deftest wolf-vote-waits-for-offline-seated-wolves
+  (let [l (-> (lobby-with-players 8) g/start-game)
+        offline-wolf (first (:werewolves l))
+        online-wolf (first (remove #{offline-wolf} (:werewolves l)))
+        l (-> l
+              (g/mark-offline offline-wolf)
+              (assoc :game-state :word-guessed)
+              (g/wolf-vote online-wolf (:seer l)))]
+    (is (= :word-guessed (:game-state l))
+        "offline seated wolves remain in the wolf vote quorum")
+    (is (= :end-game (:game-state (g/wolf-vote l offline-wolf (:seer l)))))))
 
 (deftest reset-clears-round
   (let [l (-> (lobby-with-players 5) g/start-game (g/reset-game))]
@@ -155,3 +186,13 @@
     (let [l (g/mod-seat l :p1)]
       (is (= 5 (g/active-count l)))
       (is (some? (get-in l [:players :p1 :seat]))))))
+
+(deftest mod-unseat-removes-offline-player-from-vote-quorum
+  (let [l (-> (lobby-with-players 4)
+              (g/mark-offline :p3)
+              g/start-game
+              (assoc :game-state :out-of-time)
+              (g/mod-unseat :p3))
+        voters (take 3 (remove #{:p3} (keys (:players l))))
+        l (reduce #(g/village-vote %1 %2 :p0) l voters)]
+    (is (= :end-game (:game-state l)))))

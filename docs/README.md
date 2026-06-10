@@ -90,7 +90,7 @@ frontend/src/lib/
   ws.svelte.ts   ← the WebSocket client; holds conn.lobby = $state(snapshot)
   transit.ts     ← keyword/map bridge
   types.ts       ← client half of the protocol contract
-  game.ts        ← pure view helpers (seatedPlayers, activeCount, …)
+  game.ts        ← pure view helpers (seatedPlayers, seatedCount, activeCount, …)
   identity / theme.svelte.ts  ← localStorage-backed state
   components/*.svelte          ← one per screen + shared pieces
 frontend/src/routes/

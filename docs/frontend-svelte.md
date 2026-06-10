@@ -127,6 +127,10 @@ boundaries. They log technical details with `console.error`, keep the visible UI
 message human-readable, and attach a copyable diagnostic string for mobile users
 who cannot easily inspect the JavaScript console.
 
+`game.ts` also separates **seated** from **active**. Seated players are game
+participants and count for starting and vote quorum even when offline; active
+players are the online subset used only when the UI needs presence.
+
 ## 3. Templates: blocks, events, snippets
 
 - **Keyed each** (always key by a stable id, never the index):

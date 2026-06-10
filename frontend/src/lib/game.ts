@@ -27,6 +27,11 @@ export function activeCount(lobby: Lobby): number {
 	return Object.values(lobby.players).filter((p) => p.online && p.seat && !p.spectator).length;
 }
 
+export function seatedCount(lobby: Lobby): number {
+	if (!lobby?.players) return 0;
+	return Object.values(lobby.players).filter((p) => p.seat && !p.spectator).length;
+}
+
 export function me(lobby: Lobby): Player | undefined {
 	return lobby.players[lobby.you['auth-id']];
 }

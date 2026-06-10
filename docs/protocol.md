@@ -63,7 +63,7 @@ your socket.
 | `:settings/eligibility` | `:roles {…}` | (mod) Which roles can be Mayor. |
 | `:settings/budget` | `:budget {:tokens? :maybe-tokens?}` | (mod) Set the token-budget sizes. |
 | `:settings/rules` | `:rules {…}` | (mod) Toggle `:shared-maybe-pool` `:soft-costs` `:one-at-a-time` `:lock-seating`. |
-| `:mod/unseat` | `:target` | (mod) Bench a player (free their seat). |
+| `:mod/unseat` | `:target` | (mod) Bench a player, freeing their seat and removing them from start/vote participation. |
 | `:mod/seat` | `:target` | (mod) Seat a benched player/spectator. |
 | `:game/start` | — | (mod) Deal roles, pick Mayor, draw words. |
 | `:game/pick` | `:word` | (Mayor) Commit the secret word. |

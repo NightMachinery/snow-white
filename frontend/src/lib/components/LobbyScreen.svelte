@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Lobby } from '$lib/types';
 	import { conn } from '$lib/ws.svelte';
-	import { seatedPlayers, bystanders, activeCount, me } from '$lib/game';
+	import { seatedPlayers, bystanders, seatedCount, me } from '$lib/game';
 	import PlayerSeat from './PlayerSeat.svelte';
 	import ModPanel from './ModPanel.svelte';
 	import Play from '@lucide/svelte/icons/play';
@@ -13,7 +13,8 @@
 	const seated = $derived(seatedPlayers(lobby));
 	const others = $derived(bystanders(lobby));
 	const myself = $derived(me(lobby));
-	const canStart = $derived(lobby.you['can-moderate'] && activeCount(lobby) >= 4);
+	const tableCount = $derived(seatedCount(lobby));
+	const canStart = $derived(lobby.you['can-moderate'] && tableCount >= 4);
 	const amSeated = $derived(Boolean(myself?.seat) && !myself?.spectator);
 </script>
 
@@ -21,7 +22,7 @@
 	<section>
 		<div class="mb-3 flex items-center justify-between">
 			<h2 class="font-display text-2xl">Players at the table</h2>
-			<span class="text-sm text-mist">{activeCount(lobby)} / 20</span>
+			<span class="text-sm text-mist">{tableCount} / 20</span>
 		</div>
 
 		{#if seated.length === 0}
@@ -58,7 +59,7 @@
 			{:else}
 				<button
 					onclick={() => conn.send({ type: 'seat/take' })}
-					disabled={activeCount(lobby) >= 20}
+					disabled={tableCount >= 20}
 					class="flex items-center gap-2 rounded-xl border border-apple-500 px-4 py-2 text-sm text-apple-500 transition hover:bg-apple-50 disabled:opacity-40 dark:hover:bg-white/5"
 				>
 					<LogIn class="size-4" /> Take a seat
@@ -78,7 +79,7 @@
 			>
 				<Play class="size-5" /> Start game
 			</button>
-			{#if activeCount(lobby) < 4}
+			{#if tableCount < 4}
 				<p class="-mt-2 text-center text-xs text-mist">Need at least 4 seated players.</p>
 			{/if}
 		{:else}

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Lobby } from '$lib/types';
-	import { activeCount } from '$lib/game';
+	import { seatedCount } from '$lib/game';
 	import Apple from '@lucide/svelte/icons/apple';
 	import Users from '@lucide/svelte/icons/users';
 	import Link from '@lucide/svelte/icons/link';
@@ -57,7 +57,7 @@
 
 	<div class="flex items-center gap-2">
 		<span class="flex items-center gap-1 text-sm text-mist">
-			<Users class="size-4" />{activeCount(lobby)}
+			<Users class="size-4" />{seatedCount(lobby)}
 		</span>
 		{@render right?.()}
 	</div>

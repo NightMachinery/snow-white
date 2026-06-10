@@ -11,7 +11,7 @@
 
 	const myself = $derived(me(lobby));
 	const isWolf = $derived(lobby.you.role === 'werewolf');
-	// Village vote: everyone active votes for a suspected wolf.
+	// Village vote: everyone seated votes for a suspected wolf, even if offline.
 	// Wolf vote: only wolves vote, for the suspected seer.
 	const eligible = $derived(mode === 'wolf' ? isWolf : Boolean(myself?.seat));
 
