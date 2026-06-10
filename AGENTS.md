@@ -91,6 +91,13 @@ several actions. Two mechanisms, **used together**:
 > disconnected. Use `emulate` (not `resize_page`) to set the MCP viewport — a headful
 > Chrome clamps `resize_page` to its small window, whereas `emulate` overrides via CDP.
 
+> **When the chrome-devtools MCP is flaky** (its tools intermittently vanish from the
+> toolset mid-session and need a `/mcp` reconnect), fall back to
+> [`skills/chrome-cdp`](skills/chrome-cdp/README.md) — a dependency-free
+> screenshot/probe tool (`node skills/chrome-cdp/shot.mjs --room=… --auth=… --theme=… --vp=… --out=…`)
+> that talks straight to Chrome on `:9222` via CDP. Its README also documents the full
+> REPL-driven, one-tab-per-perspective screenshot workflow.
+
 ## Skills
 
 Reusable skills live in `.agents/skills/`. Most relevant here: `svelte-code-writer`,
