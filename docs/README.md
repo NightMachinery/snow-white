@@ -72,6 +72,12 @@ Vite proxies `/api` and `/ws` to the backend (see `frontend/vite.config.ts`), so
 the browser only talks to the Vite origin in dev — no CORS, and the WebSocket
 upgrade is forwarded transparently.
 
+For self-hosted tmux workflows, prefer `./self_host.py start` or
+`./self_host.py dev-start`. Those commands create a backend tmux session with a
+`server` window for logs and a `repl` window running an nREPL client against
+the same live JVM. That keeps server output separate from the REPL client while
+still letting you drive the in-memory lobby registry from tmux.
+
 ## Where things live
 
 ```
@@ -84,7 +90,8 @@ backend/src/snow_white/
   views.clj     ← per-recipient redaction
   server.clj    ← http-kit, transit, command dispatch, broadcast (the edge)
   core.clj      ← production entrypoint
-backend/dev/user.clj   ← REPL workbench: (go) (seed! 5) (sim! "name")
+backend/dev/user.clj              ← REPL workbench: (go) (seed! 5) (sim! "name")
+backend/dev/snow_white/dev_server.clj ← self-host entrypoint with HTTP + nREPL
 
 frontend/src/lib/
   ws.svelte.ts   ← the WebSocket client; holds conn.lobby = $state(snapshot)

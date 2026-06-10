@@ -15,14 +15,18 @@ Clojure CLI projects are configured by `deps.edn` — a map of dependencies and
          http-kit/http-kit   {:mvn/version "2.8.0"}
          ...}
  :aliases
- {:dev  {:extra-paths ["dev" "test"]   ; nREPL for editor-connected dev
-         :extra-deps  {nrepl/nrepl {...} cider/cider-nrepl {...}}
-         :main-opts   ["-m" "nrepl.cmdline" ...]}
-  :run  {:main-opts ["-m" "snow-white.core"]}      ; clj -M:run
-  :test {:extra-paths ["test"] ...}}}              ; clj -M:test
+ {:dev         {:extra-paths ["dev" "test"]   ; nREPL for editor-connected dev
+                :extra-deps  {nrepl/nrepl {...} cider/cider-nrepl {...}}
+                :main-opts   ["-m" "nrepl.cmdline" ...]}
+  :dev-server  {:main-opts ["-m" "snow-white.dev-server"]} ; HTTP + nREPL
+  :repl-client {:main-opts ["-m" "nrepl.cmdline" "--connect" ...]}
+  :run         {:main-opts ["-m" "snow-white.core"]}        ; clj -M:run
+  :test        {:extra-paths ["test"] ...}}}                ; clj -M:test
 ```
 
 - `clj -M:dev` starts an nREPL server you connect your editor to.
+- `clojure -M:dev-server 38931 38933` starts HTTP and nREPL in one JVM.
+- `clojure -M:repl-client --port 38933` starts the tmux nREPL client.
 - `clj -M:run` runs `-main` (production).
 - `clj -M:test` runs the test runner.
 

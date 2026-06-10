@@ -34,7 +34,7 @@ Backend (REPL-driven):
 
 ```bash
 cd backend
-clj -M:dev          # starts an nREPL; then (go) to start the server
+clj -M:dev          # starts an nREPL; then (go) to start the server manually
 ```
 
 Frontend:
@@ -54,6 +54,10 @@ For Caddy/tmux self-hosting, see [`docs/self-hosting.md`](docs/self-hosting.md):
 ./self_host.py redeploy
 ./self_host.py dev-start
 ```
+
+The self-host script starts tmux with a backend `server` window plus a `repl`
+window. The `repl` window is an nREPL client connected to the live server JVM,
+so helpers like `(seed! 5)` operate on the served game state.
 
 ## Learning the codebase
 

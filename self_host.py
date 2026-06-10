@@ -35,6 +35,7 @@ DEFAULT_NODE_VERSION = "24"
 
 DEFAULT_BACKEND_PORT = 38931
 DEFAULT_FRONTEND_DEV_PORT = 38932
+DEFAULT_NREPL_PORT = 38933
 PROD_SESSION = "snow-white-backend"
 DEV_BACKEND_SESSION = "snow-white-dev-backend"
 DEV_FRONTEND_SESSION = "snow-white-dev-frontend"
@@ -64,9 +65,10 @@ class Mode(str, Enum):
 class Ports:
     backend: int = DEFAULT_BACKEND_PORT
     frontend_dev: int = DEFAULT_FRONTEND_DEV_PORT
+    nrepl: int = DEFAULT_NREPL_PORT
 
     def to_json(self) -> dict[str, int]:
-        return {"backend": self.backend, "frontend_dev": self.frontend_dev}
+        return {"backend": self.backend, "frontend_dev": self.frontend_dev, "nrepl": self.nrepl}
 
     @classmethod
     def from_json(cls, raw: object) -> "Ports":
@@ -75,6 +77,7 @@ class Ports:
         return cls(
             backend=int(raw.get("backend", DEFAULT_BACKEND_PORT)),
             frontend_dev=int(raw.get("frontend_dev", DEFAULT_FRONTEND_DEV_PORT)),
+            nrepl=int(raw.get("nrepl", DEFAULT_NREPL_PORT)),
         )
 
 
@@ -241,7 +244,8 @@ def find_free_port(
 def allocate_ports(preferred: Ports, *, is_free: Callable[[int], bool] = port_free) -> Ports:
     backend = find_free_port(preferred.backend, is_free=is_free)
     frontend_dev = find_free_port(preferred.frontend_dev, reserved={backend}, is_free=is_free)
-    return Ports(backend=backend, frontend_dev=frontend_dev)
+    nrepl = find_free_port(preferred.nrepl, reserved={backend, frontend_dev}, is_free=is_free)
+    return Ports(backend=backend, frontend_dev=frontend_dev, nrepl=nrepl)
 
 
 def tmux_kill(session: str) -> None:
@@ -300,22 +304,60 @@ def announce_serving(config: Config) -> None:
     print(f"serving: {config.site.origin}")
 
 
-def backend_repl_commands(session: str, ports: Ports) -> tuple[tuple[str, str], list[str]]:
-    return (session, "clj -M:dev"), ["tmux", "send-keys", "-t", session, f"(go {ports.backend})", "Enter"]
+def backend_server_command(ports: Ports) -> str:
+    return f"clojure -M:dev-server {ports.backend} {ports.nrepl}"
 
 
-def start_backend_repl(session: str, ports: Ports) -> None:
-    (tmux_session, command), send_command = backend_repl_commands(session, ports)
-    tmuxnew(tmux_session, command, cwd=BACKEND, env_args=tmux_env_args())
-    run(send_command)
+def backend_repl_client_command(ports: Ports) -> str:
+    return (
+        f"bash -lc 'until nc -z 127.0.0.1 {ports.nrepl} >/dev/null 2>&1; do sleep 0.2; done; "
+        f"exec clojure -M:repl-client --port {ports.nrepl}'"
+    )
+
+
+def backend_tmux_commands(session: str, ports: Ports) -> list[list[str]]:
+    return [
+        ["tmux", "kill-session", "-t", session],
+        [
+            "tmux",
+            "new",
+            "-d",
+            "-s",
+            session,
+            "-n",
+            "server",
+            "-c",
+            str(BACKEND),
+            backend_server_command(ports),
+        ],
+        [
+            "tmux",
+            "new-window",
+            "-t",
+            f"{session}:",
+            "-n",
+            "repl",
+            "-c",
+            str(BACKEND),
+            backend_repl_client_command(ports),
+        ],
+    ]
+
+
+def start_backend(session: str, ports: Ports) -> None:
+    commands = backend_tmux_commands(session, ports)
+    subprocess.run(commands[0], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    env_args = tmux_env_args()
+    run(commands[1][:2] + env_args + commands[1][2:])
+    run(commands[2][:2] + env_args + commands[2][2:])
 
 
 def start_backend_prod(ports: Ports) -> None:
-    start_backend_repl(PROD_SESSION, ports)
+    start_backend(PROD_SESSION, ports)
 
 
 def start_backend_dev(ports: Ports) -> None:
-    start_backend_repl(DEV_BACKEND_SESSION, ports)
+    start_backend(DEV_BACKEND_SESSION, ports)
 
 
 def frontend_dev_command(ports: Ports) -> tuple[str, dict[str, str]]:
@@ -346,7 +388,7 @@ def resolve_runtime_config(url: str | None, mode: Mode) -> Config:
 def command_setup(url: str | None) -> None:
     command_stop()
     config = resolve_runtime_config(url, Mode.PROD)
-    ensure_tools(["caddy", "clj", "pnpm", "tmux", "zsh"])
+    ensure_tools(["caddy", "clojure", "nc", "pnpm", "tmux", "zsh"])
     install_frontend(dedupe=True)
     build_frontend()
     update_caddyfile(config.site, Mode.PROD, config.ports)
@@ -359,7 +401,7 @@ def command_setup(url: str | None) -> None:
 def command_redeploy(url: str | None) -> None:
     command_stop()
     config = resolve_runtime_config(url, Mode.PROD)
-    ensure_tools(["caddy", "clj", "pnpm", "tmux", "zsh"])
+    ensure_tools(["caddy", "clojure", "nc", "pnpm", "tmux", "zsh"])
     install_frontend()
     build_frontend()
     update_caddyfile(config.site, Mode.PROD, config.ports)
@@ -372,7 +414,7 @@ def command_redeploy(url: str | None) -> None:
 def command_start(url: str | None) -> None:
     command_stop()
     config = resolve_runtime_config(url, Mode.PROD)
-    ensure_tools(["caddy", "clj", "tmux"])
+    ensure_tools(["caddy", "clojure", "nc", "tmux"])
     if not BUILD_DIR.exists():
         ensure_tools(["pnpm", "zsh"])
         install_frontend()
@@ -387,7 +429,7 @@ def command_start(url: str | None) -> None:
 def command_dev_start(url: str | None) -> None:
     command_stop()
     config = resolve_runtime_config(url, Mode.DEV)
-    ensure_tools(["caddy", "clj", "pnpm", "tmux", "zsh"])
+    ensure_tools(["caddy", "clojure", "nc", "pnpm", "tmux", "zsh"])
     install_frontend()
     update_caddyfile(config.site, Mode.DEV, config.ports)
     save_config(config)
@@ -410,6 +452,7 @@ def command_status() -> None:
         print(f"mode: {config.mode.value}")
         print(f"backend port: {config.ports.backend}")
         print(f"frontend dev port: {config.ports.frontend_dev}")
+        print(f"nREPL port: {config.ports.nrepl}")
     for session in (PROD_SESSION, DEV_BACKEND_SESSION, DEV_FRONTEND_SESSION):
         if shutil.which("tmux") is None:
             print(f"tmux {session}: tmux not installed")
@@ -417,7 +460,7 @@ def command_status() -> None:
             found = subprocess.run(["tmux", "has-session", "-t", session], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
             print(f"tmux {session}: {'running' if found else 'stopped'}")
     ports = config.ports if config else Ports()
-    for port in (ports.backend, ports.frontend_dev):
+    for port in (ports.backend, ports.frontend_dev, ports.nrepl):
         print(f"port {port}: {'free' if port_free(port) else 'in use'}")
     if shutil.which("curl") is None:
         print("backend health: curl not installed")

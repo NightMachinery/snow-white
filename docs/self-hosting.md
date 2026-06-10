@@ -28,7 +28,8 @@ links are app routes, not deployment origins.
 
 `setup [url]` stops existing Snow White tmux sessions, installs frontend
 dependencies, builds the static app, writes the Caddy block, reloads Caddy, and
-starts production in a backend REPL tmux session.
+starts production in a backend tmux session with separate `server` and `repl`
+windows.
 
 Frontend commands run through `zsh`, call `nvm-load`, and then `nvm use 24`
 from `frontend/.nvmrc`. This is deliberate: current `pnpm` requires a modern
@@ -42,17 +43,18 @@ the package registry.
 
 `redeploy [url]` is the normal "ship latest local changes" command. It stops any
 prod or dev sessions, runs `pnpm install --frozen-lockfile`, rebuilds the
-frontend, refreshes Caddy, and starts production in a backend REPL tmux session.
+frontend, refreshes Caddy, and starts production in a backend tmux session with
+a connected REPL client.
 
 `start [url]` switches Caddy to production mode and starts only the Clojure
-backend REPL tmux session. Caddy serves `frontend/build` directly, so there is
+backend tmux session. Caddy serves `frontend/build` directly, so there is
 no Node static file server in production. If `frontend/build` is missing,
 `start` builds it first.
 
 `dev-start [url]` switches Caddy to development mode. It starts:
 
-- backend tmux session: `clj -M:dev`, then sends `(go <backend-port>)` into
-  that REPL
+- backend tmux session: a `server` window running the HTTP server plus localhost
+  nREPL, and a `repl` window running an nREPL client connected to that nREPL
 - frontend tmux session: `pnpm dev --host ... --port <frontend-dev-port>`
 
 On macOS the Vite dev server listens on `localhost`, which is right for local
@@ -63,11 +65,12 @@ The helper defaults to uncommon local ports instead of the usual demo ports:
 
 - `38931`: Clojure backend
 - `38932`: Vite dev server
+- `38933`: nREPL server used by the tmux REPL client
 
-If either port is already occupied, the helper scans upward for the next free
-port, writes the chosen values to `.self-host/config.json`, and reuses those
-saved values on later runs. If a saved port later becomes busy, the helper picks
-and saves a replacement before updating Caddy and starting tmux sessions.
+If any managed port is already occupied, the helper scans upward for the next
+free port, writes the chosen values to `.self-host/config.json`, and reuses
+those saved values on later runs. If a saved port later becomes busy, the helper
+picks and saves a replacement before updating Caddy and starting tmux sessions.
 
 `stop` kills only Snow White's tmux sessions.
 
@@ -136,7 +139,8 @@ The script saves the selected runtime ports in `.self-host/config.json`:
   "mode": "dev",
   "ports": {
     "backend": 38931,
-    "frontend_dev": 38932
+    "frontend_dev": 38932,
+    "nrepl": 38933
   },
   "url": "https://snow-white.pinky.lilf.ir"
 }
@@ -146,6 +150,11 @@ Manual backend workflows use the same backend default. `(go)` in the Clojure
 dev REPL starts `:38931`, and `(go 39000)` starts the same server on an explicit
 port. `clj -M:run` is still available for a one-shot non-REPL server, defaults
 to `:38931`, honors `PORT`, and also accepts a port argument.
+
+Managed backend sessions use `clojure -M:dev-server <backend-port>
+<nrepl-port>`. That one JVM owns both the HTTP server and the in-memory lobby
+registry, while its local nREPL server exposes the same state to the tmux
+client.
 
 tmux sessions:
 
@@ -159,9 +168,16 @@ Attach to a session with:
 tmux attach -t snow-white-dev-backend
 ```
 
-Both production and development backend tmux sessions are deliberately
-REPL-driven. They run `clj -M:dev` and then `(go <backend-port>)`, so the live
-server is the same Clojure process you inspect and drive from the REPL.
+Inside a backend session, tmux windows have distinct jobs:
+
+- `server` runs the live Clojure HTTP/WebSocket process and shows logs.
+- `repl` runs `clojure -M:repl-client --port <nrepl-port>`, an nREPL client
+  connected to the live server JVM.
+
+Use the `repl` window for forms like `(seed! 5)`, `(show "dev-5")`, and
+`(sim! "dev-5")`. The old pattern of typing into the same pane that launched
+the server mixed prompts, logs, and `rlwrap`; the split-window setup keeps the
+control surface clean.
 
 ## Proxy environment
 

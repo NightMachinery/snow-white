@@ -96,7 +96,7 @@ class SelfHostTests(unittest.TestCase):
         cfg = self_host.Config(
             site=self_host.parse_site_url("http://lan.example.test"),
             mode=self_host.Mode.DEV,
-            ports=self_host.Ports(backend=38951, frontend_dev=38952),
+            ports=self_host.Ports(backend=38951, frontend_dev=38952, nrepl=38953),
         )
         payload = cfg.to_json()
         restored = self_host.Config.from_json(payload)
@@ -104,28 +104,32 @@ class SelfHostTests(unittest.TestCase):
         self.assertEqual(restored.mode, self_host.Mode.DEV)
         self.assertEqual(restored.ports.backend, 38951)
         self.assertEqual(restored.ports.frontend_dev, 38952)
+        self.assertEqual(restored.ports.nrepl, 38953)
 
     def test_legacy_config_uses_default_ports(self):
         restored = self_host.Config.from_json('{"url": "http://lan.example.test", "mode": "dev"}')
         self.assertEqual(restored.ports.backend, self_host.DEFAULT_BACKEND_PORT)
         self.assertEqual(restored.ports.frontend_dev, self_host.DEFAULT_FRONTEND_DEV_PORT)
+        self.assertEqual(restored.ports.nrepl, self_host.DEFAULT_NREPL_PORT)
 
     def test_find_free_port_skips_busy_and_reserved_ports(self):
         reserved = {39001}
         self.assertEqual(self_host.find_free_port(39001, reserved=reserved, is_free=lambda port: port == 39003), 39003)
 
     def test_allocate_ports_reuses_free_configured_ports(self):
-        ports = self_host.allocate_ports(self_host.Ports(backend=39011, frontend_dev=39012), is_free=lambda port: True)
+        ports = self_host.allocate_ports(self_host.Ports(backend=39011, frontend_dev=39012, nrepl=39013), is_free=lambda port: True)
         self.assertEqual(ports.backend, 39011)
         self.assertEqual(ports.frontend_dev, 39012)
+        self.assertEqual(ports.nrepl, 39013)
 
     def test_allocate_ports_reselects_busy_configured_ports(self):
         ports = self_host.allocate_ports(
-            self_host.Ports(backend=39021, frontend_dev=39022),
-            is_free=lambda port: port not in {39021, 39022},
+            self_host.Ports(backend=39021, frontend_dev=39022, nrepl=39023),
+            is_free=lambda port: port not in {39021, 39022, 39023},
         )
-        self.assertEqual(ports.backend, 39023)
-        self.assertEqual(ports.frontend_dev, 39024)
+        self.assertEqual(ports.backend, 39024)
+        self.assertEqual(ports.frontend_dev, 39025)
+        self.assertEqual(ports.nrepl, 39026)
 
     def test_frontend_dev_command_includes_selected_ports_and_backend_origin(self):
         command, env = self_host.frontend_dev_command(self_host.Ports(backend=39031, frontend_dev=39032))
@@ -136,10 +140,33 @@ class SelfHostTests(unittest.TestCase):
         args = self_host.tmux_env_args({"SNOW_BACKEND": "http://localhost:39041"})
         self.assertEqual(args, ["-e", "SNOW_BACKEND=http://localhost:39041"])
 
-    def test_backend_repl_commands_start_dev_repl_and_send_go(self):
-        start, send = self_host.backend_repl_commands("snow-white-backend", self_host.Ports(backend=39051, frontend_dev=39052))
-        self.assertEqual(start, ("snow-white-backend", "clj -M:dev"))
-        self.assertEqual(send, ["tmux", "send-keys", "-t", "snow-white-backend", "(go 39051)", "Enter"])
+    def test_backend_commands_start_server_and_nrepl_client_windows(self):
+        commands = self_host.backend_tmux_commands("snow-white-backend", self_host.Ports(backend=39051, frontend_dev=39052, nrepl=39053))
+        self.assertEqual(
+            commands,
+            [
+                ["tmux", "kill-session", "-t", "snow-white-backend"],
+                ["tmux", "new", "-d", "-s", "snow-white-backend", "-n", "server", "-c", str(self_host.BACKEND), "clojure -M:dev-server 39051 39053"],
+                [
+                    "tmux",
+                    "new-window",
+                    "-t",
+                    "snow-white-backend:",
+                    "-n",
+                    "repl",
+                    "-c",
+                    str(self_host.BACKEND),
+                    "bash -lc 'until nc -z 127.0.0.1 39053 >/dev/null 2>&1; do sleep 0.2; done; exec clojure -M:repl-client --port 39053'",
+                ],
+            ],
+        )
+
+    def test_backend_repl_client_command_uses_clojure_not_clj(self):
+        command = self_host.backend_repl_client_command(self_host.Ports(backend=39051, frontend_dev=39052, nrepl=39053))
+        self.assertIn("clojure -M:repl-client --port 39053", command)
+        self.assertIn("bash -lc", command)
+        self.assertIn(">/dev/null 2>&1", command)
+        self.assertNotIn("clj ", command)
 
     def test_announce_serving_prints_site_origin(self):
         cfg = self_host.Config(
