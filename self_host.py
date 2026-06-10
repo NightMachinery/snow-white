@@ -166,11 +166,15 @@ def caddy_dev_upstream(ports: Ports) -> str:
 
 def render_caddy_block(site: Site, mode: Mode, ports: Ports = Ports()) -> str:
     if mode == Mode.PROD:
-        frontend = f"""	root * {BUILD_DIR}
-	try_files {{path}} /index.html
-	file_server"""
+        frontend = f"""	handle {{
+		root * {BUILD_DIR}
+		try_files {{path}} /index.html
+		file_server
+	}}"""
     else:
-        frontend = f"""	reverse_proxy {caddy_dev_upstream(ports)}"""
+        frontend = f"""	handle {{
+		reverse_proxy {caddy_dev_upstream(ports)}
+	}}"""
 
     return f"""{MANAGED_START}
 {site.opposite_origin} {{
@@ -179,7 +183,9 @@ def render_caddy_block(site: Site, mode: Mode, ports: Ports = Ports()) -> str:
 
 {site.origin} {{
 	@backend path /api /api/* /ws /health
-	reverse_proxy @backend localhost:{ports.backend}
+	handle @backend {{
+		reverse_proxy localhost:{ports.backend}
+	}}
 
 {frontend}
 }}

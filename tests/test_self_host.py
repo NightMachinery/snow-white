@@ -22,16 +22,43 @@ class SelfHostTests(unittest.TestCase):
         self.assertIn("http://game.example.test", block)
         self.assertIn("redir https://game.example.test{uri} permanent", block)
         self.assertIn("@backend path /api /api/* /ws /health", block)
-        self.assertIn("reverse_proxy @backend localhost:38933", block)
+        self.assertIn("handle @backend", block)
+        self.assertIn("reverse_proxy localhost:38933", block)
         self.assertIn("root * ", block)
         self.assertIn("try_files {path} /index.html", block)
+
+    def test_prod_caddy_block_handles_backend_before_static_fallback(self):
+        site = self_host.parse_site_url("https://game.example.test")
+        block = self_host.render_caddy_block(site, self_host.Mode.PROD, self_host.Ports(backend=38933, frontend_dev=38934))
+        backend = """	handle @backend {
+		reverse_proxy localhost:38933
+	}"""
+        fallback = """	handle {
+		root * """
+        self.assertIn(backend, block)
+        self.assertIn(fallback, block)
+        self.assertLess(block.index(backend), block.index(fallback))
+
+    def test_dev_caddy_block_handles_backend_before_frontend_proxy(self):
+        site = self_host.parse_site_url("https://game.example.test")
+        block = self_host.render_caddy_block(site, self_host.Mode.DEV, self_host.Ports(backend=38933, frontend_dev=38934))
+        backend = """	handle @backend {
+		reverse_proxy localhost:38933
+	}"""
+        frontend = """	handle {
+		reverse_proxy localhost:38934
+	}"""
+        self.assertIn(backend, block)
+        self.assertIn(frontend, block)
+        self.assertLess(block.index(backend), block.index(frontend))
 
     def test_http_caddy_block_redirects_https_to_http(self):
         site = self_host.parse_site_url("http://game.example.test:8080")
         block = self_host.render_caddy_block(site, self_host.Mode.DEV, self_host.Ports(backend=38941, frontend_dev=38942))
         self.assertIn("https://game.example.test:8080", block)
         self.assertIn("redir http://game.example.test:8080{uri} permanent", block)
-        self.assertIn("reverse_proxy @backend localhost:38941", block)
+        self.assertIn("handle @backend", block)
+        self.assertIn("reverse_proxy localhost:38941", block)
         self.assertIn("reverse_proxy localhost:38942", block)
 
     def test_tmux_env_args_include_existing_proxy_vars(self):

@@ -104,16 +104,25 @@ In production, the main Caddy site looks conceptually like this:
 ```caddyfile
 https://snow-white.pinky.lilf.ir {
     @backend path /api /api/* /ws /health
-    reverse_proxy @backend localhost:38931
+    handle @backend {
+        reverse_proxy localhost:38931
+    }
 
-    root * /path/to/repo/frontend/build
-    try_files {path} /index.html
-    file_server
+    handle {
+        root * /path/to/repo/frontend/build
+        try_files {path} /index.html
+        file_server
+    }
 }
 ```
 
 The `try_files` line is what makes direct visits to `/room/<name>` work with a
 static Svelte build.
+
+The `handle` blocks are important. Caddy sorts bare directives by its own
+directive order, and `try_files` runs before `reverse_proxy`; without ordered
+handlers, `/api/create` can be rewritten to `/index.html` and return the Svelte
+HTML shell instead of a Transit API response.
 
 In development, the backend routes still go to Clojure, while everything else is
 proxied to Vite for hot reload.
