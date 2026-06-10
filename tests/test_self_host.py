@@ -46,6 +46,17 @@ class SelfHostTests(unittest.TestCase):
             ],
         )
 
+    def test_node_command_uses_node_24_via_nvm(self):
+        command = self_host.node_command("pnpm build")
+        self.assertIn("nvm-load", command)
+        self.assertIn("nvm use 24", command)
+        self.assertTrue(command.endswith("&& pnpm build"))
+
+    def test_install_frontend_uses_noninteractive_pnpm(self):
+        command = self_host.node_command("CI=true pnpm install --frozen-lockfile && CI=true pnpm dedupe")
+        self.assertIn("CI=true pnpm install --frozen-lockfile", command)
+        self.assertIn("CI=true pnpm dedupe", command)
+
     def test_config_roundtrip(self):
         cfg = self_host.Config(site=self_host.parse_site_url("http://lan.example.test"), mode=self_host.Mode.DEV)
         payload = cfg.to_json()

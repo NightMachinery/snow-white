@@ -17,6 +17,8 @@ reload.
 For frontend-only checks:
 
 ```bash
+nvm-load
+nvm use 24
 pnpm install --frozen-lockfile
 pnpm check
 pnpm build

@@ -30,6 +30,7 @@ CONFIG_DIR = ROOT / ".self-host"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 CADDYFILE = Path.home() / "Caddyfile"
 DEFAULT_URL = "https://snow-white.pinky.lilf.ir"
+DEFAULT_NODE_VERSION = "24"
 
 BACKEND_PORT = 3000
 FRONTEND_DEV_PORT = 5173
@@ -222,14 +223,17 @@ def shell_with_node(command: str) -> str:
 
 def node_command(command: str) -> str:
     nvmrc = FRONTEND / ".nvmrc"
-    node_setup = "command -v nvm-load >/dev/null 2>&1 && nvm-load || true"
-    if nvmrc.exists():
-        node_setup += f" && nvm use {nvmrc.read_text().strip()}"
+    version = nvmrc.read_text().strip() if nvmrc.exists() else DEFAULT_NODE_VERSION
+    node_setup = (
+        "command -v nvm-load >/dev/null 2>&1 "
+        "|| { echo 'nvm-load is required for frontend commands' >&2; exit 1; }"
+        f" && nvm-load && nvm use {version}"
+    )
     return node_setup + " && " + command
 
 
 def install_frontend() -> None:
-    run(["zsh", "-lc", node_command("pnpm install --frozen-lockfile && pnpm dedupe")], cwd=FRONTEND)
+    run(["zsh", "-lc", node_command("CI=true pnpm install --frozen-lockfile && CI=true pnpm dedupe")], cwd=FRONTEND)
 
 
 def build_frontend() -> None:

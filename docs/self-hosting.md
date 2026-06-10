@@ -30,6 +30,12 @@ links are app routes, not deployment origins.
 dependencies, builds the static app, writes the Caddy block, reloads Caddy, and
 starts production.
 
+Frontend commands run through `zsh`, call `nvm-load`, and then `nvm use 24`
+from `frontend/.nvmrc`. This is deliberate: current `pnpm` requires a modern
+Node, and some servers still have an older system `node` first on `PATH`. The
+install step also sets `CI=true` so `pnpm` does not stop for an interactive
+`node_modules` recreation prompt during redeploys.
+
 `redeploy [url]` is the normal "ship latest local changes" command. It stops any
 prod or dev sessions, runs `pnpm install --frozen-lockfile`, runs `pnpm dedupe`,
 rebuilds the frontend, refreshes Caddy, and starts production.
