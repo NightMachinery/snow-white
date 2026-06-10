@@ -65,6 +65,7 @@
 				bind:value={name}
 				placeholder="e.g. Briar Rose"
 				maxlength="24"
+				dir="auto"
 				class="rounded-xl border border-frost bg-snow px-4 py-2.5 outline-none focus:ring-2 focus:ring-apple-400 dark:border-white/10 dark:bg-white/5"
 			/>
 		</label>
@@ -77,6 +78,7 @@
 				bind:value={room}
 				placeholder="leave blank to generate"
 				maxlength="40"
+				dir="auto"
 				onkeydown={(e) => e.key === 'Enter' && join()}
 				class="rounded-xl border border-frost bg-snow px-4 py-2.5 outline-none focus:ring-2 focus:ring-apple-400 dark:border-white/10 dark:bg-white/5"
 			/>

@@ -40,7 +40,7 @@
 			<h3 class="mb-2 mt-5 text-sm font-medium text-mist">Watching ({others.length})</h3>
 			<div class="flex flex-wrap gap-2">
 				{#each others as p (p['auth-id'])}
-					<span class="rounded-full bg-frost px-3 py-1 text-sm dark:bg-white/10">
+					<span class="rounded-full bg-frost px-3 py-1 text-sm dark:bg-white/10" dir="auto">
 						{p['display-name']}
 					</span>
 				{/each}

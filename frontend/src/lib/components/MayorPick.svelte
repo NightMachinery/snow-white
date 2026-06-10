@@ -20,6 +20,7 @@
 			{#each lobby.words as word (word)}
 				<button
 					onclick={() => conn.send({ type: 'game/pick', word })}
+					dir="auto"
 					class="rounded-card border border-frost bg-white/70 px-5 py-5 font-display text-2xl shadow-sm transition hover:border-apple-500 hover:ring-2 hover:ring-apple-400 dark:border-white/10 dark:bg-white/5"
 				>
 					{word}
@@ -28,7 +29,9 @@
 		</div>
 	{:else}
 		<div class="flex flex-col items-center gap-2 py-10 text-center">
-			<p class="animate-pulse font-display text-2xl">{mayorName} is choosing the word…</p>
+			<p class="animate-pulse font-display text-2xl">
+				<span dir="auto">{mayorName}</span> is choosing the word…
+			</p>
 			<p class="text-mist">Get your questions ready.</p>
 		</div>
 	{/if}

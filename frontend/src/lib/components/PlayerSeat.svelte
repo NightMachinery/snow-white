@@ -41,8 +41,8 @@
 	</span>
 	<span class="min-w-0 flex-1">
 		<span class="flex items-center gap-1 truncate font-medium">
-			{player['display-name']}
-			{#if isYou}<span class="text-xs text-mist">(you)</span>{/if}
+			<span class="truncate" dir="auto">{player['display-name']}</span>
+			{#if isYou}<span class="shrink-0 text-xs text-mist">(you)</span>{/if}
 		</span>
 		<span class="flex items-center gap-1.5 text-xs text-mist">
 			{#if player.mayor}<Crown class="size-3 text-apple-500" /> Mayor{/if}

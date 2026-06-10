@@ -27,7 +27,7 @@
 				class="mt-0.5 flex items-center gap-1 text-xs text-mist hover:text-apple-500"
 				title="Copy invite link"
 			>
-				{#if copied}<Check class="size-3" /> copied!{:else}<Link class="size-3" /> {room}{/if}
+				{#if copied}<Check class="size-3" /> copied!{:else}<Link class="size-3" /> <span dir="auto">{room}</span>{/if}
 			</button>
 		</div>
 	</div>

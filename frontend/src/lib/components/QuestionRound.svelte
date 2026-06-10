@@ -40,7 +40,7 @@
 
 		{#if lobby.you['knows-word'] && lobby['chosen-word']}
 			<p class="rounded-xl bg-frost/60 px-4 py-2 text-sm dark:bg-white/5">
-				The secret word is <span class="font-display text-base">{lobby['chosen-word']}</span>
+				The secret word is <span class="font-display text-base" dir="auto">{lobby['chosen-word']}</span>
 			</p>
 		{/if}
 
@@ -49,6 +49,7 @@
 				<input
 					bind:value={draft}
 					placeholder="Ask a yes/no question…"
+					dir="auto"
 					onkeydown={(e) => e.key === 'Enter' && ask()}
 					class="flex-1 rounded-xl border border-frost bg-snow px-4 py-2.5 outline-none focus:ring-2 focus:ring-apple-400 dark:border-white/10 dark:bg-white/5"
 				/>
@@ -65,7 +66,7 @@
 		<div class="flex flex-col gap-1.5">
 			{#each [...lobby.answered].reverse() as q, i (lobby.answered.length - i)}
 				<div class="flex items-baseline justify-between gap-3 rounded-xl bg-white/60 px-3 py-2 text-sm dark:bg-white/5">
-					<span><span class="text-mist">{q.name}:</span> {q.text}</span>
+					<span class="min-w-0" dir="auto"><span class="text-mist">{q.name}:</span> {q.text}</span>
 					<span class={['shrink-0', answerCls[q.answer ?? ''] ?? 'text-mist']}>
 						{answerLabel[q.answer ?? ''] ?? q.answer}
 					</span>

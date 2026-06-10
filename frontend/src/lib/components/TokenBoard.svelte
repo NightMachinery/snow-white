@@ -32,8 +32,8 @@
 	{#if isMayor}
 		{#if head}
 			<div class="rounded-2xl border border-apple-200 bg-apple-50 p-3 dark:border-white/10 dark:bg-white/5">
-				<p class="text-xs uppercase tracking-wide text-mist">{head.name} asks</p>
-				<p class="font-display text-lg">{head.text}</p>
+				<p class="text-xs uppercase tracking-wide text-mist"><span dir="auto">{head.name}</span> asks</p>
+				<p class="font-display text-lg" dir="auto">{head.text}</p>
 			</div>
 			<div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
 				{#each buttons as b (b.a)}

@@ -47,18 +47,18 @@
 			{villageWon ? 'The Village wins!' : 'The Wolves win!'}
 		</h2>
 		<p class="text-mist">
-			The word was <span class="font-display text-ink dark:text-snow">{lobby['chosen-word']}</span>
+			The word was <span class="font-display text-ink dark:text-snow" dir="auto">{lobby['chosen-word']}</span>
 		</p>
 	</div>
 
 	<div class="grid w-full gap-2 text-left text-sm">
 		<div class="flex items-center justify-between rounded-xl bg-dusk/10 px-4 py-2">
 			<span class="text-mist">{wolves.length > 1 ? 'Wolves' : 'Wolf'}</span>
-			<span class="font-medium">{wolves.join(', ')}</span>
+			<span class="font-medium" dir="auto">{wolves.join(', ')}</span>
 		</div>
 		<div class="flex items-center justify-between rounded-xl bg-apple-50 px-4 py-2 dark:bg-white/5">
 			<span class="text-mist">Seer</span>
-			<span class="font-medium">{seerName}</span>
+			<span class="font-medium" dir="auto">{seerName}</span>
 		</div>
 	</div>
 
@@ -66,7 +66,7 @@
 	<div class="grid w-full grid-cols-2 gap-1.5 text-left text-xs sm:grid-cols-3">
 		{#each Object.values(lobby.players).filter((p) => p.role) as p (p['auth-id'])}
 			<div class="flex items-center justify-between rounded-lg bg-white/60 px-2.5 py-1.5 dark:bg-white/5">
-				<span class="truncate">{p['display-name']}</span>
+				<span class="truncate" dir="auto">{p['display-name']}</span>
 				<span class="ml-1 shrink-0 text-mist">{roleLabel[p.role ?? '']}</span>
 			</div>
 		{/each}
