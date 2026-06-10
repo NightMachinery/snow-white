@@ -71,3 +71,87 @@
     (is (nil? (:mayor l)))
     (is (empty? (:werewolves l)))
     (is (= 5 (count (filter :seat (vals (:players l)))))))) ; seats preserved
+
+;; --- question-round rules ---------------------------------------------------
+
+(defn- into-question-round
+  "Start a 5-player game and pick the first word. Returns [lobby mayor askers]."
+  []
+  (let [l (g/start-game (lobby-with-players 5))
+        mayor (:mayor l)
+        l (g/mayor-pick l mayor (first (:words l)))
+        askers (vec (remove #{mayor} (keys (:players l))))]
+    [l mayor askers]))
+
+(deftest one-pending-question-per-player
+  (let [[l _ askers] (into-question-round)
+        a (first askers)
+        l (-> l (g/ask-question a "First?") (g/ask-question a "Second?"))]
+    (is (= 1 (count (:questions l))) "a second pending question is rejected")
+    (is (= "First?" (:text (first (:questions l)))))))
+
+(deftest mayor-cannot-ask
+  (let [[l mayor _] (into-question-round)
+        l (g/ask-question l mayor "May I?")]
+    (is (empty? (:questions l)))))
+
+(deftest edit-own-pending-question
+  (let [[l _ askers] (into-question-round)
+        a (first askers)
+        l (-> l (g/ask-question a "Typo?") (g/edit-question a "Fixed?"))]
+    (is (= "Fixed?" (:text (first (:questions l)))))))
+
+(deftest one-at-a-time-gate
+  (let [[l _ askers] (into-question-round)
+        l (g/set-rules l {:one-at-a-time true})
+        l (-> l (g/ask-question (first askers) "A?")
+                (g/ask-question (second askers) "B?"))]
+    (is (= 1 (count (:questions l))) "no new question while one is pending")))
+
+;; --- token economy ----------------------------------------------------------
+
+(deftest soft-costs-default-on
+  (let [[l mayor askers] (into-question-round)
+        l (-> l (g/ask-question (first askers) "Close?")
+                (g/answer-question mayor :so-close))]
+    (is (= (dec g/start-tokens) (:tokens l)) "so-close spends a main token by default")))
+
+(deftest soft-costs-off
+  (let [[l mayor askers] (into-question-round)
+        l (g/set-rules l {:soft-costs false})
+        l (-> l (g/ask-question (first askers) "Close?")
+                (g/answer-question mayor :way-off))]
+    (is (= g/start-tokens (:tokens l)) "way-off is free when soft-costs off")))
+
+(deftest shared-maybe-pool-default-on
+  (let [[l mayor askers] (into-question-round)
+        l (-> l (g/ask-question (first askers) "Maybe?")
+                (g/answer-question mayor :maybe))]
+    (is (= (dec g/start-tokens) (:tokens l)) "maybe spends the main pool by default")
+    (is (= g/start-maybe-tokens (:maybe-tokens l)) "separate maybe pool untouched")))
+
+(deftest separate-maybe-pool
+  (let [[l mayor askers] (into-question-round)
+        l (g/set-rules l {:shared-maybe-pool false})
+        l (-> l (g/ask-question (first askers) "Maybe?")
+                (g/answer-question mayor :maybe))]
+    (is (= g/start-tokens (:tokens l)) "main pool untouched")
+    (is (= (dec g/start-maybe-tokens) (:maybe-tokens l)) "maybe pool spent")))
+
+(deftest configurable-budget-applied-at-start
+  (let [l (-> (lobby-with-players 5)
+              (g/set-budget {:tokens 5})
+              g/start-game)]
+    (is (= 5 (:tokens l)) "start-game loads the configured budget")))
+
+;; --- mod player management ---------------------------------------------------
+
+(deftest mod-unseat-and-seat
+  (let [l (lobby-with-players 5)
+        l (g/mod-unseat l :p1)]
+    (is (= 4 (g/active-count l)))
+    (is (:spectator (get-in l [:players :p1])))
+    (is (nil? (get-in l [:players :p1 :seat])))
+    (let [l (g/mod-seat l :p1)]
+      (is (= 5 (g/active-count l)))
+      (is (some? (get-in l [:players :p1 :seat]))))))

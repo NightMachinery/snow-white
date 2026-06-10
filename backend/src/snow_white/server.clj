@@ -73,18 +73,36 @@
       (let [me auth-id]
         (case type
           ;; --- seating ---
-          :seat/take    (reg/update-lobby! lobby game/take-seat me (:seat msg) (:color msg))
-          :seat/spectate (reg/update-lobby! lobby game/spectate me)
+          ;; Players may self-seat unless a mod has locked seating (mods bypass).
+          :seat/take    (reg/update-lobby! lobby
+                                           (fn [l]
+                                             (if (and (:lock-seating l)
+                                                      (not (game/can-moderate? l me)))
+                                               l
+                                               (game/take-seat l me (:seat msg) (:color msg)))))
+          :seat/spectate (reg/update-lobby! lobby
+                                            (fn [l]
+                                              (if (and (:lock-seating l)
+                                                       (not (game/can-moderate? l me)))
+                                                l
+                                                (game/spectate l me))))
 
           ;; --- settings (mod-gated) ---
           :settings/timer       (reg/update-lobby! lobby mod-gate me game/set-timer (:minutes msg))
           :settings/pick-count  (reg/update-lobby! lobby mod-gate me game/set-pick-count (:pick-count msg))
           :settings/eligibility (reg/update-lobby! lobby mod-gate me game/set-mayor-eligibility (:roles msg))
+          :settings/budget      (reg/update-lobby! lobby mod-gate me game/set-budget (:budget msg))
+          :settings/rules       (reg/update-lobby! lobby mod-gate me game/set-rules (:rules msg))
+
+          ;; --- mod player management (mod-gated) ---
+          :mod/seat     (reg/update-lobby! lobby mod-gate me game/mod-seat (:target msg))
+          :mod/unseat   (reg/update-lobby! lobby mod-gate me game/mod-unseat (:target msg))
 
           ;; --- game flow ---
           :game/start    (reg/update-lobby! lobby mod-gate me game/start-game)
           :game/pick     (reg/update-lobby! lobby game/mayor-pick me (:word msg))
           :game/ask      (reg/update-lobby! lobby game/ask-question me (:text msg))
+          :game/edit     (reg/update-lobby! lobby game/edit-question me (:text msg))
           :game/answer   (reg/update-lobby! lobby game/answer-question me (:answer msg))
           :game/timeout  (reg/update-lobby! lobby mod-gate me game/timeout)
           :game/vote-village (reg/update-lobby! lobby game/village-vote me (:target msg))
