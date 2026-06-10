@@ -41,6 +41,9 @@ message contract.
 - **Svelte:** runes only (`$state`, `$derived`, `$effect`) — no `export let`, no `$:`, no
   stores, no `on:` directives, no `<slot>`. Follow the `svelte-core-bestpractices` skill.
 - **Styling:** Tailwind, mobile-first, dark mode, respect reduced-motion.
+- **Self-hosting/dev:** use `./self_host.py dev-start` for local macOS development unless
+  the user explicitly asks for production `start`; `dev-start` keeps the backend in a REPL
+  tmux session and switches Caddy to the Vite dev server.
 - **Commits:** atomic and logically grouped; commit at natural endpoints; push at the end.
 
 ## Driving game states for testing & screenshots

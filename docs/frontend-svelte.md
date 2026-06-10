@@ -8,16 +8,17 @@ where the state is the lobby snapshot the server last sent.
 
 ```
 frontend/
-  svelte.config.js   ← adapter (we use adapter-node) + forces runes mode
+  svelte.config.js   ← static adapter + forces runes mode
   vite.config.ts     ← Tailwind plugin + dev proxy for /api and /ws
   src/
     app.css          ← Tailwind v4 entry + design tokens (@theme)
     app.html         ← page shell
     routes/          ← file-based routing
-      +layout.svelte           ← wraps every page (fonts, theme, global CSS)
+      +layout.svelte           ← wraps every page (theme, global CSS)
+      +layout.ts               ← static SPA route config
       +page.svelte             ← "/" home
       room/[lobby]/+page.svelte ← "/room/:lobby" the game
-      room/[lobby]/+page.ts     ← route config: ssr = false (client-only)
+      room/[lobby]/+page.ts     ← route config: client-only dynamic rooms
     lib/             ← importable as $lib/...
       *.svelte.ts    ← modules that USE runes (note the extension!)
       components/*.svelte
@@ -156,6 +157,11 @@ These tokens become utilities: `bg-apple-500`, `font-display`, `rounded-card`,
 and the `dark:` variant keys off a `.dark` class on `<html>` (toggled in
 `theme.svelte.ts`).
 
+The Google font families are embedded in the repo rather than loaded from
+Google at runtime. `frontend/static/fonts` contains Inter and Fraunces files,
+and `app.css` defines local `@font-face` rules before the Tailwind theme tokens.
+That keeps the same typography in public and intranet deployments.
+
 **Mobile-first**: base classes target phones; `sm:` / `lg:` add larger-screen
 overrides. e.g. the home buttons stack on mobile and sit side-by-side on `sm+`:
 
@@ -171,12 +177,14 @@ The room uses a single column on phones and a sidebar on desktop:
 > root. Barrel imports force Vite to parse the whole icon set at build time and
 > slow `vite build`; per-icon imports keep builds fast.
 
-## 5. Why client-only for the room (`ssr = false`)
+## 5. Static hosting and client-only routes
 
 `conn` is a module-level singleton. On the server, all SSR requests would share
 that one instance — a state-leak hazard, and there's no live socket server-side
-anyway. `room/[lobby]/+page.ts` sets `export const ssr = false` so the room runs
-only in the browser. The home page still benefits from SSR.
+anyway. `+layout.ts` sets `ssr = false` for the app, and the SvelteKit static
+adapter writes an `index.html` fallback. Caddy serves that fallback for direct
+visits like `/room/frost-owl-734`, then the browser-side router reads
+`page.params.lobby` and opens the WebSocket.
 
 ## 6. Type safety as documentation
 

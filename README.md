@@ -47,6 +47,14 @@ pnpm dev
 
 Open the printed URL, create a room, and share the room link.
 
+For Caddy/tmux self-hosting, see [`docs/self-hosting.md`](docs/self-hosting.md):
+
+```bash
+./self_host.py setup https://snow-white.pinky.lilf.ir
+./self_host.py redeploy
+./self_host.py dev-start
+```
+
 ## Learning the codebase
 
 Start with [`docs/README.md`](docs/README.md) for the architecture tour, then
