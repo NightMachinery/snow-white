@@ -43,6 +43,54 @@ message contract.
 - **Styling:** Tailwind, mobile-first, dark mode, respect reduced-motion.
 - **Commits:** atomic and logically grouped; commit at natural endpoints; push at the end.
 
+## Driving game states for testing & screenshots
+
+Reaching a mid-game screen (question round, votes, end) needs ≥4 seated players and
+several actions. Two mechanisms, **used together**:
+
+- **Drive the bulk of players from the REPL — not from browser tabs.** Run the backend
+  REPL-first (`clj -M:dev` → `(go)`, or start the server with a socket REPL:
+  `clj -J-Dclojure.server.repl='{:port 5555 :accept clojure.core.server/repl}' -M:run`).
+  Then seat and play *all* the players with pure calls — no sockets required:
+
+  ```clojure
+  (in-ns 'snow-white.registry)
+  (require '[snow-white.game :as game])
+  (create-lobby! "host-auth" "shots")
+  (doseq [[id nm] [["host-auth" "Briar Rose"] ["p2-auth" "Hunter"]
+                   ["p3-auth" "Grimm"] ["p4-auth" "Rapunzel"] ["p5-auth" "Gretel"]]]
+    (update-lobby! "shots" game/join id nm))
+  (update-lobby! "shots" game/start-game)                  ; -> :mayor-pick
+  (let [l @(get-lobby-atom "shots")]
+    (update-lobby! "shots" game/mayor-pick (:mayor l) (first (:words l))))
+  (update-lobby! "shots" game/ask-question "p2-auth" "Is it a place?")
+  (update-lobby! "shots" game/answer-question (:mayor @(get-lobby-atom "shots")) :yes)
+  ```
+
+  The REPL holds the *same in-memory state the live server serves*, so a browser opened
+  to that room immediately reflects whatever the REPL has done. (A *separate* `clj`
+  process would have its own state and would NOT affect the running server — drive the
+  process that is actually serving.)
+
+- **Open a browser tab only for each perspective you need to *see* — one tab per role,
+  each in its own `isolatedContext`.** Identity lives in `localStorage`
+  (`snow:auth-id`, `snow:name`, `snow:theme`), and **`localStorage` is shared across all
+  same-origin tabs**. So if you open N plain tabs and set a different `snow:auth-id` in
+  each, the last write wins for *all* of them — every tab ends up as the same player and
+  only one seat fills. With the Chrome DevTools MCP, give each player tab a **distinct**
+  `isolatedContext` (`new_page` with `isolatedContext:"p2"`, `"p3"`, …): pages in the
+  same context share storage, different contexts are fully isolated. Set that tab's
+  `localStorage` to the auth-id of the role you want to view (e.g. the mayor to see the
+  TokenBoard, a villager to see the ask box), then navigate to `/room/<name>`.
+
+  You rarely need more than one or two tabs — drive the rest from the REPL.
+
+> **Lobby retention:** an empty lobby is kept for **14 days** (a background reaper in
+> `registry.clj` deletes it only after it has stayed empty that long); rejoining resets
+> the clock. So a room won't vanish mid-session just because every socket briefly
+> disconnected. Use `emulate` (not `resize_page`) to set the MCP viewport — a headful
+> Chrome clamps `resize_page` to its small window, whereas `emulate` overrides via CDP.
+
 ## Skills
 
 Reusable skills live in `.agents/skills/`. Most relevant here: `svelte-code-writer`,

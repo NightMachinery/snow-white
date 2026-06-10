@@ -21,3 +21,6 @@ node_modules/
 # Env
 .env
 .env.local
+
+# Visual-polish screenshot scratch dir
+.snow-shots/
