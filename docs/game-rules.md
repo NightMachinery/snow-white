@@ -21,16 +21,29 @@ eligible; villager-only by default). The Mayor answers the questions.
 
 ## Flow
 
-1. **Lobby** — players take seats (up to 20 active; others spectate). The host
-   configures the timer, how many candidate words the Mayor sees, and which
-   roles can be Mayor, then starts.
+1. **Lobby** — players take seats (up to 20 active; others spectate). Mods
+   configure the timer, candidate-word count, mayor eligibility, the token economy
+   (above), and may **bench** a player or **seat** a spectator. With *Lock seating*
+   on, only mods move players between seat and bench. The same settings panel is
+   available (collapsed) during the game, so mods can adjust mid-round.
 2. **Mayor picks** — the Mayor is shown N random candidate words and chooses one
    secret word. Only the Mayor, Seer, and Wolves will know it.
 3. **Question round** — players ask yes/no questions. The Mayor answers each
    with **Yes / No / Maybe / So close / Way off / Correct**, or discards it.
-   - Each Yes/No spends one of the shared **36 tokens**; each Maybe spends one of
-     **12 maybe-tokens**. The round ends when the word is guessed (**Correct**),
-     the tokens run out, or the timer expires.
+   - Each player may have **one pending (unanswered) question at a time** and can
+     **edit** it until the Mayor answers; they can't queue a second. Everyone sees
+     the pending queue and a live roster of who's at the table.
+   - **Token economy (configurable by mods).** A shared **answer budget** (default
+     **36**) limits how many questions get answered. By default **Yes / No / Maybe /
+     So close / Way off** each spend **1** token; **Correct** ends the round and
+     **Discard** is free. Mods can change the budget size and toggle:
+     - *Maybes share the main budget* (default **on**) — when off, Maybe draws from a
+       separate maybe pool (default **12**).
+     - *“So close / Way off” cost a token* (default **on**) — when off, those are free.
+     - *One question at a time* (default **off**) — when on, no new question may be
+       queued while one is still unanswered.
+   - The round ends when the word is guessed (**Correct**), the budget runs out, or
+     the timer expires.
 4. **Voting**
    - If the word **was guessed**: the **Wolves** secretly vote for who they think
      the **Seer** is.

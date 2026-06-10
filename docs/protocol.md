@@ -56,14 +56,19 @@ your socket.
 
 | `:type` | Fields | Effect |
 | --- | --- | --- |
-| `:seat/take` | `:seat?` `:color?` | Sit down (first free seat if omitted). |
-| `:seat/spectate` | — | Leave your seat to watch. |
+| `:seat/take` | `:seat?` `:color?` | Sit down (first free seat if omitted). Blocked for non-mods when `:lock-seating`. |
+| `:seat/spectate` | — | Leave your seat to watch. Blocked for non-mods when `:lock-seating`. |
 | `:settings/timer` | `:minutes` | (mod) Set round length. |
 | `:settings/pick-count` | `:pick-count` | (mod) How many candidate words. |
 | `:settings/eligibility` | `:roles {…}` | (mod) Which roles can be Mayor. |
+| `:settings/budget` | `:budget {:tokens? :maybe-tokens?}` | (mod) Set the token-budget sizes. |
+| `:settings/rules` | `:rules {…}` | (mod) Toggle `:shared-maybe-pool` `:soft-costs` `:one-at-a-time` `:lock-seating`. |
+| `:mod/unseat` | `:target` | (mod) Bench a player (free their seat). |
+| `:mod/seat` | `:target` | (mod) Seat a benched player/spectator. |
 | `:game/start` | — | (mod) Deal roles, pick Mayor, draw words. |
 | `:game/pick` | `:word` | (Mayor) Commit the secret word. |
-| `:game/ask` | `:text` | Ask a yes/no question. |
+| `:game/ask` | `:text` | Ask a yes/no question (one pending per player; blocked if `:one-at-a-time` and a question is queued). |
+| `:game/edit` | `:text` | Revise the text of *your own* pending question. |
 | `:game/answer` | `:answer` | (Mayor) `:yes :no :maybe :so-close :way-off :correct :discard`. |
 | `:game/vote-village` | `:target` | Vote for a suspected Wolf (word not guessed). |
 | `:game/vote-wolf` | `:target` | (Wolf) Vote for the suspected Seer (word guessed). |
