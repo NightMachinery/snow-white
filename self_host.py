@@ -270,8 +270,15 @@ def node_command(command: str) -> str:
     return node_setup + " && " + command
 
 
-def install_frontend() -> None:
-    run(["zsh", "-lc", node_command("CI=true pnpm install --frozen-lockfile && CI=true pnpm dedupe")], cwd=FRONTEND)
+def frontend_install_command(*, dedupe: bool = False) -> str:
+    command = "CI=true pnpm install --frozen-lockfile"
+    if dedupe:
+        command += " && CI=true pnpm dedupe"
+    return command
+
+
+def install_frontend(*, dedupe: bool = False) -> None:
+    run(["zsh", "-lc", node_command(frontend_install_command(dedupe=dedupe))], cwd=FRONTEND)
 
 
 def build_frontend() -> None:
@@ -325,7 +332,7 @@ def command_setup(url: str | None) -> None:
     command_stop()
     config = resolve_runtime_config(url, Mode.PROD)
     ensure_tools(["caddy", "clj", "pnpm", "tmux", "zsh"])
-    install_frontend()
+    install_frontend(dedupe=True)
     build_frontend()
     update_caddyfile(config.site, Mode.PROD, config.ports)
     save_config(config)

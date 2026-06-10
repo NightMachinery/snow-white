@@ -56,10 +56,13 @@ class SelfHostTests(unittest.TestCase):
         self.assertIn("nvm use 24", command)
         self.assertTrue(command.endswith("&& pnpm build"))
 
-    def test_install_frontend_uses_noninteractive_pnpm(self):
-        command = self_host.node_command("CI=true pnpm install --frozen-lockfile && CI=true pnpm dedupe")
-        self.assertIn("CI=true pnpm install --frozen-lockfile", command)
-        self.assertIn("CI=true pnpm dedupe", command)
+    def test_frontend_install_command_uses_noninteractive_pnpm_without_dedupe_by_default(self):
+        command = self_host.frontend_install_command()
+        self.assertEqual(command, "CI=true pnpm install --frozen-lockfile")
+
+    def test_frontend_install_command_can_include_setup_dedupe(self):
+        command = self_host.frontend_install_command(dedupe=True)
+        self.assertEqual(command, "CI=true pnpm install --frozen-lockfile && CI=true pnpm dedupe")
 
     def test_config_roundtrip(self):
         cfg = self_host.Config(

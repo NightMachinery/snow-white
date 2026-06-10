@@ -36,9 +36,13 @@ Node, and some servers still have an older system `node` first on `PATH`. The
 install step also sets `CI=true` so `pnpm` does not stop for an interactive
 `node_modules` recreation prompt during redeploys.
 
+`setup [url]` also runs `pnpm dedupe` as a one-time dependency maintenance pass.
+Normal redeploys skip it so they do not perform an extra resolver pass against
+the package registry.
+
 `redeploy [url]` is the normal "ship latest local changes" command. It stops any
-prod or dev sessions, runs `pnpm install --frozen-lockfile`, runs `pnpm dedupe`,
-rebuilds the frontend, refreshes Caddy, and starts production.
+prod or dev sessions, runs `pnpm install --frozen-lockfile`, rebuilds the
+frontend, refreshes Caddy, and starts production.
 
 `start [url]` switches Caddy to production mode and starts only the Clojure
 backend. Caddy serves `frontend/build` directly, so there is no Node static file
