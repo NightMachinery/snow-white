@@ -69,6 +69,10 @@ and saves a replacement before updating Caddy and starting tmux sessions.
 `status` prints the saved URL/mode, tmux session state, port state, and backend
 health.
 
+Commands that start serving (`setup`, `redeploy`, `start`, and `dev-start`)
+finish by printing `serving: <url>` so the live URL is visible after the Caddy
+reload and tmux sessions succeed.
+
 ## Caddy behavior
 
 The script edits only the managed section in `~/Caddyfile`:

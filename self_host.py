@@ -283,6 +283,10 @@ def reload_caddy() -> None:
     run(["caddy", "reload", "--config", str(CADDYFILE)])
 
 
+def announce_serving(config: Config) -> None:
+    print(f"serving: {config.site.origin}")
+
+
 def start_backend_prod(ports: Ports) -> None:
     tmuxnew(PROD_SESSION, f"clj -M:run {ports.backend}", cwd=BACKEND, env_args=tmux_env_args())
 
@@ -327,6 +331,7 @@ def command_setup(url: str | None) -> None:
     save_config(config)
     reload_caddy()
     start_backend_prod(config.ports)
+    announce_serving(config)
 
 
 def command_redeploy(url: str | None) -> None:
@@ -339,6 +344,7 @@ def command_redeploy(url: str | None) -> None:
     save_config(config)
     reload_caddy()
     start_backend_prod(config.ports)
+    announce_serving(config)
 
 
 def command_start(url: str | None) -> None:
@@ -353,6 +359,7 @@ def command_start(url: str | None) -> None:
     save_config(config)
     reload_caddy()
     start_backend_prod(config.ports)
+    announce_serving(config)
 
 
 def command_dev_start(url: str | None) -> None:
@@ -365,6 +372,7 @@ def command_dev_start(url: str | None) -> None:
     reload_caddy()
     start_backend_dev(config.ports)
     start_frontend_dev(config.ports)
+    announce_serving(config)
 
 
 def command_stop() -> None:

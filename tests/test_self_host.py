@@ -1,4 +1,6 @@
+import io
 import unittest
+from contextlib import redirect_stdout
 
 import self_host
 
@@ -102,6 +104,17 @@ class SelfHostTests(unittest.TestCase):
     def test_tmux_env_args_include_snow_backend_for_vite_proxy(self):
         args = self_host.tmux_env_args({"SNOW_BACKEND": "http://localhost:39041"})
         self.assertEqual(args, ["-e", "SNOW_BACKEND=http://localhost:39041"])
+
+    def test_announce_serving_prints_site_origin(self):
+        cfg = self_host.Config(
+            site=self_host.parse_site_url("https://game.example.test"),
+            mode=self_host.Mode.PROD,
+            ports=self_host.Ports(backend=39051, frontend_dev=39052),
+        )
+        out = io.StringIO()
+        with redirect_stdout(out):
+            self_host.announce_serving(cfg)
+        self.assertEqual(out.getvalue(), "serving: https://game.example.test\n")
 
 
 if __name__ == "__main__":
