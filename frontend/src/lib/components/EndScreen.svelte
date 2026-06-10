@@ -4,6 +4,7 @@
 	import { roleLabel } from '$lib/game';
 	import Trophy from '@lucide/svelte/icons/trophy';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import Sparkles from '@lucide/svelte/icons/sparkles';
 
 	let { lobby }: { lobby: Lobby } = $props();
 
@@ -11,15 +12,36 @@
 	const wolves = $derived(lobby.werewolves.map((a) => lobby.players[a]?.['display-name']).filter(Boolean));
 	const seerName = $derived(lobby.seer ? lobby.players[lobby.seer]?.['display-name'] : '');
 	const villageWon = $derived(winner === 'village');
+
+	// A small, tasteful celebratory flourish: a handful of sparkles drift up behind
+	// the result banner. Purely decorative, and the global reduced-motion rule
+	// freezes the animation for users who prefer less motion.
+	const sparks = [
+		{ left: '8%', delay: '0s', size: 'size-4', d: '2.6s' },
+		{ left: '24%', delay: '0.5s', size: 'size-3', d: '3s' },
+		{ left: '46%', delay: '0.15s', size: 'size-5', d: '2.4s' },
+		{ left: '68%', delay: '0.7s', size: 'size-3', d: '3.1s' },
+		{ left: '88%', delay: '0.35s', size: 'size-4', d: '2.8s' }
+	];
 </script>
 
-<div class="mx-auto flex max-w-lg flex-col items-center gap-5 text-center">
+<div class="mx-auto flex max-w-lg flex-col items-center gap-5 text-center" style="animation: pop-in 0.4s var(--ease-soft) both">
 	<div
 		class={[
-			'flex flex-col items-center gap-2 rounded-card px-8 py-6 ring-1',
+			'relative flex w-full flex-col items-center gap-2 overflow-hidden rounded-card px-8 py-6 ring-1',
 			villageWon ? 'bg-forest/10 ring-forest/30' : 'bg-dusk/10 ring-dusk/30'
 		]}
 	>
+		<!-- Drifting sparkles (decorative) -->
+		<div class="pointer-events-none absolute inset-0" aria-hidden="true">
+			{#each sparks as s, i (i)}
+				<Sparkles
+					class={['absolute bottom-0', s.size, villageWon ? 'text-forest/50' : 'text-dusk/50']}
+					style="left:{s.left}; animation: float-up {s.d} var(--ease-soft) {s.delay} infinite;"
+				/>
+			{/each}
+		</div>
+
 		<Trophy class={['size-10', villageWon ? 'text-forest' : 'text-dusk']} />
 		<h2 class="font-display text-3xl">
 			{villageWon ? 'The Village wins!' : 'The Wolves win!'}

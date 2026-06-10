@@ -35,10 +35,13 @@
 
 <div
 	class={[
-		'flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-sm tabular-nums',
-		low ? 'bg-apple-500 text-white' : 'bg-frost text-ink dark:bg-white/10 dark:text-snow'
+		'flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-sm tabular-nums transition-colors',
+		low
+			? 'bg-apple-100 text-apple-600 ring-1 ring-apple-400 dark:bg-apple-500/15 dark:text-apple-400'
+			: 'bg-frost text-ink dark:bg-white/10 dark:text-snow'
 	]}
+	style={low ? 'animation: timer-pulse 1s var(--ease-soft) infinite' : ''}
 >
-	<Clock class="size-4" />
+	<Clock class={['size-4', low && 'text-apple-500']} />
 	{mm}:{ss.toString().padStart(2, '0')}
 </div>

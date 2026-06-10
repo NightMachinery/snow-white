@@ -24,6 +24,9 @@
 	--font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 
 	--radius-card: 1.25rem;
+
+	/* Reusable easing + a gentle pop for state changes / list inserts. */
+	--ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Dark mode driven by a `.dark` class on <html> (toggled in JS). */
@@ -35,13 +38,84 @@
 
 html {
 	font-family: var(--font-sans);
-	background: var(--color-snow);
 	color: var(--color-ink);
+	/* A soft fairy-tale wash: a faint apple-blush glow up top fading into snow,
+	   so flat surfaces read with a touch of depth without competing with content. */
+	background:
+		radial-gradient(120% 80% at 50% -10%, oklch(0.97 0.03 24 / 0.5), transparent 60%),
+		var(--color-snow);
+	background-attachment: fixed;
 }
 
 html.dark {
-	background: var(--color-ink);
 	color: var(--color-snow);
+	background:
+		radial-gradient(120% 80% at 50% -10%, oklch(0.45 0.09 285 / 0.28), transparent 60%),
+		var(--color-ink);
+}
+
+/* Fraunces is an optical-size serif; let the browser pick weights/optical sizing
+   for crisper headings, and enable Inter's tabular figures where we use them. */
+body {
+	font-optical-sizing: auto;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+/* One consistent focus ring for keyboard users across every interactive element,
+   so we don't have to remember it per-button. Pointer clicks stay ring-free. */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--color-snow), 0 0 0 4px var(--color-apple-400);
+}
+html.dark :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+	box-shadow: 0 0 0 2px var(--color-ink), 0 0 0 4px var(--color-apple-400);
+}
+
+/* On-theme text selection. */
+::selection {
+	background: oklch(0.6 0.21 24 / 0.25);
+}
+
+/* A gentle entrance used by screens and list rows (reduced-motion-safe below). */
+@keyframes pop-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px) scale(0.985);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* The countdown's low-time state breathes gently — enough to draw the eye without
+   the old hard flip to solid red. Reduced-motion freezes it (rule below). */
+@keyframes timer-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.6;
+	}
+}
+
+/* Decorative sparkles that drift up on the End screen (purely cosmetic). The
+   keyframe lives here, not in a component, because it's referenced from an inline
+   `style=` attribute, which Svelte does not scope/rename. */
+@keyframes float-up {
+	0% {
+		opacity: 0;
+		transform: translateY(8px) scale(0.6) rotate(-8deg);
+	}
+	20% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+		transform: translateY(-92px) scale(1) rotate(10deg);
+	}
 }
 
 /* Respect users who prefer less motion. */
@@ -50,6 +124,7 @@ html.dark {
 	*::before,
 	*::after {
 		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
 	}
 }
