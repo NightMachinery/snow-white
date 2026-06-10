@@ -54,13 +54,29 @@ export function decode(s: string): unknown {
 // `case` dispatch and game logic recognize them.
 const KEYWORD_FIELDS = new Set(['type', 'answer']);
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+	return Object.getPrototypeOf(value) === Object.prototype;
+}
+
+function encodeValue(key: string, value: unknown): unknown {
+	if (KEYWORD_FIELDS.has(key) && typeof value === 'string') return transit.keyword(value);
+	if (Array.isArray(value)) return value.map((item) => encodeValue('', item));
+	if (!isPlainObject(value)) return value;
+
+	const out = transit.map();
+	for (const [childKey, childValue] of Object.entries(value)) {
+		out.set(transit.keyword(childKey), encodeValue(childKey, childValue));
+	}
+	return out;
+}
+
 /** Encode an outgoing command object to a transit-json string. */
 export function encode(cmd: Record<string, unknown>): string {
 	const out = transit.map();
 	for (const [k, val] of Object.entries(cmd)) {
 		const key = transit.keyword(k);
-		const v = KEYWORD_FIELDS.has(k) && typeof val === 'string' ? transit.keyword(val) : val;
-		out.set(key, v);
+		out.set(key, encodeValue(k, val));
 	}
 	return writer.write(out);
 }

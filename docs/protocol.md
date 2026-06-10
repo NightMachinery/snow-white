@@ -54,6 +54,10 @@ then immediately broadcasts a `:lobby/state` to everyone in the room.
 All include just the fields shown; the server already knows *who* you are from
 your socket.
 
+Command map keys are Clojure keywords on the wire, including nested payload maps
+such as `:rules`, `:budget`, and `:roles`. Plain string values like question text
+remain strings; enum-like values such as `:type` and `:answer` are keywords.
+
 | `:type` | Fields | Effect |
 | --- | --- | --- |
 | `:seat/take` | `:seat?` `:color?` | Sit down (first free seat if omitted). Blocked for non-mods when `:lock-seating`. |
