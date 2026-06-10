@@ -39,7 +39,6 @@ export interface Player {
 	'display-number': number;
 	online: boolean;
 	spectator: boolean;
-	observer: boolean;
 	seat: string | null; // e.g. "seat-3"
 	color: string | null;
 	role: Role; // redacted to null unless you may see it
@@ -70,6 +69,13 @@ export interface Lobby {
 	'mayor-eligibility': { villager: boolean; seer: boolean; werewolf: boolean };
 	'timer-minutes': number;
 	'pick-count': number;
+	// configurable economy / flow rules (mod-settable)
+	'max-tokens': number;
+	'max-maybe-tokens': number;
+	'shared-maybe-pool': boolean;
+	'soft-costs': boolean;
+	'one-at-a-time': boolean;
+	'lock-seating': boolean;
 	'game-state': GameState;
 	mayor: string | null;
 	seer: string | null; // only revealed at end-game

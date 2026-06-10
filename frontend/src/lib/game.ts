@@ -16,17 +16,15 @@ export function seatNum(seat: string): number {
 	return Number(seat.replace('seat-', ''));
 }
 
-/** Spectators / observers (no active seat). */
+/** Spectators (no active seat). */
 export function bystanders(lobby: Lobby): Player[] {
 	if (!lobby?.players) return [];
-	return Object.values(lobby.players).filter((p) => !p.seat || p.spectator || p.observer);
+	return Object.values(lobby.players).filter((p) => !p.seat || p.spectator);
 }
 
 export function activeCount(lobby: Lobby): number {
 	if (!lobby?.players) return 0;
-	return Object.values(lobby.players).filter(
-		(p) => p.online && p.seat && !p.spectator && !p.observer
-	).length;
+	return Object.values(lobby.players).filter((p) => p.online && p.seat && !p.spectator).length;
 }
 
 export function me(lobby: Lobby): Player | undefined {

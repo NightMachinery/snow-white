@@ -1,0 +1,209 @@
+<script lang="ts">
+	import { untrack } from 'svelte';
+	import type { Lobby } from '$lib/types';
+	import { conn } from '$lib/ws.svelte';
+	import { seatedPlayers, bystanders } from '$lib/game';
+	import Settings2 from '@lucide/svelte/icons/settings-2';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import UserMinus from '@lucide/svelte/icons/user-minus';
+	import UserPlus from '@lucide/svelte/icons/user-plus';
+
+	// `compact` (mid-game) renders the panel collapsed behind a disclosure button;
+	// the lobby renders it always-open. The same controls are used in both places.
+	let { lobby, compact = false }: { lobby: Lobby; compact?: boolean } = $props();
+
+	const canMod = $derived(lobby.you['can-moderate']);
+	const elig = $derived(lobby['mayor-eligibility']);
+	const inGame = $derived(lobby['game-state'] !== 'lobby');
+
+	// Lobby: open by default. Mid-game (compact): collapsed behind a disclosure.
+	// `compact` is fixed per mount, so read it untracked to set the initial state.
+	let open = $state(untrack(() => !compact));
+
+	function setTimer(minutes: number) {
+		conn.send({ type: 'settings/timer', minutes });
+	}
+	function setPick(n: number) {
+		conn.send({ type: 'settings/pick-count', 'pick-count': n });
+	}
+	function toggleRole(role: 'villager' | 'seer' | 'werewolf') {
+		conn.send({ type: 'settings/eligibility', roles: { ...elig, [role]: !elig[role] } });
+	}
+	function setBudget(patch: { tokens?: number; 'maybe-tokens'?: number }) {
+		conn.send({ type: 'settings/budget', budget: patch });
+	}
+	function setRule(key: string, value: boolean) {
+		conn.send({ type: 'settings/rules', rules: { [key]: value } });
+	}
+	function unseat(target: string) {
+		conn.send({ type: 'mod/unseat', target });
+	}
+	function seat(target: string) {
+		conn.send({ type: 'mod/seat', target });
+	}
+
+	const seated = $derived(seatedPlayers(lobby));
+	const benched = $derived(bystanders(lobby));
+</script>
+
+<div class="rounded-2xl border border-frost dark:border-white/10">
+	<button
+		onclick={() => (open = !open)}
+		class="flex w-full items-center justify-between gap-2 px-4 py-3 font-medium"
+		aria-expanded={open}
+	>
+		<span class="flex items-center gap-2">
+			<Settings2 class="size-4 text-mist" /> Settings{#if !canMod}<span class="text-xs font-normal text-mist"> · view only</span>{/if}
+		</span>
+		{#if compact}
+			<ChevronDown class={['size-4 text-mist transition-transform', open && 'rotate-180']} />
+		{/if}
+	</button>
+
+	{#if open}
+		<div class="flex flex-col gap-3 border-t border-frost px-4 py-3 text-sm dark:border-white/10">
+			<!-- Timer -->
+			<label class="flex items-center justify-between gap-2">
+				<span class="text-mist">Timer</span>
+				<select
+					disabled={!canMod}
+					value={lobby['timer-minutes']}
+					onchange={(e) => setTimer(Number(e.currentTarget.value))}
+					class="rounded-lg border border-frost bg-snow px-2 py-1 disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
+				>
+					{#each [1, 2, 3, 4, 5, 10] as m (m)}<option value={m}>{m} min</option>{/each}
+				</select>
+			</label>
+
+			<!-- Word choices (lobby only — fixed once a game starts) -->
+			{#if !inGame}
+				<label class="flex items-center justify-between gap-2">
+					<span class="text-mist">Word choices</span>
+					<select
+						disabled={!canMod}
+						value={lobby['pick-count']}
+						onchange={(e) => setPick(Number(e.currentTarget.value))}
+						class="rounded-lg border border-frost bg-snow px-2 py-1 disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
+					>
+						{#each [1, 2, 3, 4] as n (n)}<option value={n}>{n}</option>{/each}
+					</select>
+				</label>
+			{/if}
+
+			<!-- Token budget -->
+			<div class="flex items-center justify-between gap-2">
+				<span class="text-mist">Answer budget</span>
+				<div class="flex items-center gap-1.5">
+					<input
+						type="number"
+						min="1"
+						disabled={!canMod}
+						value={lobby['max-tokens']}
+						onchange={(e) => setBudget({ tokens: Number(e.currentTarget.value) })}
+						class="w-16 rounded-lg border border-frost bg-snow px-2 py-1 tabular-nums disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
+						aria-label="Yes/No budget"
+					/>
+					{#if !lobby['shared-maybe-pool']}
+						<span class="text-mist">·</span>
+						<input
+							type="number"
+							min="0"
+							disabled={!canMod}
+							value={lobby['max-maybe-tokens']}
+							onchange={(e) => setBudget({ 'maybe-tokens': Number(e.currentTarget.value) })}
+							class="w-14 rounded-lg border border-frost bg-snow px-2 py-1 tabular-nums disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
+							aria-label="Maybe budget"
+						/>
+						<span class="text-xs text-mist">maybe</span>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Rule toggles -->
+			<div class="flex flex-col gap-2 border-t border-frost/70 pt-2 dark:border-white/5">
+				{#each [
+					{ k: 'shared-maybe-pool', label: 'Maybes share the main budget' },
+					{ k: 'soft-costs', label: '“So close / Way off” cost a token' },
+					{ k: 'one-at-a-time', label: 'One question at a time' },
+					{ k: 'lock-seating', label: 'Lock seating (mods only)' }
+				] as r (r.k)}
+					<label class="flex items-center justify-between gap-2">
+						<span class="text-mist">{r.label}</span>
+						<button
+							role="switch"
+							aria-checked={lobby[r.k as 'soft-costs']}
+							aria-label={r.label}
+							disabled={!canMod}
+							onclick={() => setRule(r.k, !lobby[r.k as 'soft-costs'])}
+							class={[
+								'relative h-5 w-9 shrink-0 rounded-full transition disabled:opacity-60',
+								lobby[r.k as 'soft-costs'] ? 'bg-apple-500' : 'bg-frost dark:bg-white/15'
+							]}
+						>
+							<span
+								class={[
+									'absolute top-0.5 size-4 rounded-full bg-white transition-all',
+									lobby[r.k as 'soft-costs'] ? 'left-[1.125rem]' : 'left-0.5'
+								]}
+							></span>
+						</button>
+					</label>
+				{/each}
+			</div>
+
+			<!-- Mayor eligibility (lobby only) -->
+			{#if !inGame}
+				<div class="border-t border-frost/70 pt-2 dark:border-white/5">
+					<span class="text-mist">Mayor can be</span>
+					<div class="mt-1.5 flex flex-wrap gap-1.5">
+						{#each ['villager', 'seer', 'werewolf'] as role (role)}
+							<button
+								disabled={!canMod}
+								onclick={() => toggleRole(role as 'villager')}
+								class={[
+									'rounded-full px-3 py-1 text-xs capitalize transition disabled:opacity-60',
+									elig[role as 'villager']
+										? 'bg-apple-500 text-white'
+										: 'bg-frost text-mist dark:bg-white/10'
+								]}
+							>
+								{role}
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			<!-- Player management (mods only) -->
+			{#if canMod}
+				<div class="border-t border-frost/70 pt-2 dark:border-white/5">
+					<span class="text-mist">Manage players</span>
+					<div class="mt-1.5 flex flex-col gap-1">
+						{#each seated as p (p['auth-id'])}
+							<div class="flex items-center justify-between gap-2">
+								<span class="truncate" dir="auto">{p['display-name']}</span>
+								<button
+									onclick={() => unseat(p['auth-id'])}
+									class="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs text-mist transition hover:bg-frost dark:hover:bg-white/10"
+								>
+									<UserMinus class="size-3.5" /> Bench
+								</button>
+							</div>
+						{/each}
+						{#each benched as p (p['auth-id'])}
+							<div class="flex items-center justify-between gap-2 text-mist">
+								<span class="truncate" dir="auto">{p['display-name']}</span>
+								<button
+									onclick={() => seat(p['auth-id'])}
+									class="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs text-apple-500 transition hover:bg-apple-50 dark:hover:bg-white/5"
+								>
+									<UserPlus class="size-3.5" /> Seat
+								</button>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+		</div>
+	{/if}
+</div>

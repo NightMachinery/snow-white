@@ -25,7 +25,7 @@
 		<span class="text-mist">Tokens left</span>
 		<span class="font-mono tabular-nums">
 			<span class="text-ink dark:text-snow">{lobby.tokens}</span>
-			<span class="text-mist"> · maybe {lobby['maybe-tokens']}</span>
+			{#if !lobby['shared-maybe-pool']}<span class="text-mist"> · maybe {lobby['maybe-tokens']}</span>{/if}
 		</span>
 	</div>
 
@@ -56,9 +56,5 @@
 				No questions waiting — players are thinking.
 			</p>
 		{/if}
-	{:else}
-		<p class="text-sm text-mist">
-			{lobby.questions.length} question{lobby.questions.length === 1 ? '' : 's'} waiting for the Mayor.
-		</p>
 	{/if}
 </div>

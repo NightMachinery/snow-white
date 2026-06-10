@@ -3,7 +3,7 @@
 	import { conn } from '$lib/ws.svelte';
 	import { seatedPlayers, bystanders, activeCount, me } from '$lib/game';
 	import PlayerSeat from './PlayerSeat.svelte';
-	import Settings from './Settings.svelte';
+	import ModPanel from './ModPanel.svelte';
 	import Play from '@lucide/svelte/icons/play';
 	import Eye from '@lucide/svelte/icons/eye';
 	import LogIn from '@lucide/svelte/icons/log-in';
@@ -14,7 +14,7 @@
 	const others = $derived(bystanders(lobby));
 	const myself = $derived(me(lobby));
 	const canStart = $derived(lobby.you['can-moderate'] && activeCount(lobby) >= 4);
-	const amSeated = $derived(Boolean(myself?.seat) && !myself?.spectator && !myself?.observer);
+	const amSeated = $derived(Boolean(myself?.seat) && !myself?.spectator);
 </script>
 
 <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -68,7 +68,7 @@
 	</section>
 
 	<aside class="flex flex-col gap-4">
-		<Settings {lobby} />
+		<ModPanel {lobby} />
 
 		{#if lobby.you['can-moderate']}
 			<button
