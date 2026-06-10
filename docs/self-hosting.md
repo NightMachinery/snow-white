@@ -46,12 +46,23 @@ server in production. If `frontend/build` is missing, `start` builds it first.
 
 `dev-start [url]` switches Caddy to development mode. It starts:
 
-- backend tmux session: `clj -M:dev`, then sends `(go)` into that REPL
-- frontend tmux session: `pnpm dev --host ... --port 5173`
+- backend tmux session: `clj -M:dev`, then sends `(go <backend-port>)` into
+  that REPL
+- frontend tmux session: `pnpm dev --host ... --port <frontend-dev-port>`
 
 On macOS the Vite dev server listens on `localhost`, which is right for local
 development. On non-macOS it listens on `0.0.0.0`, which is right for a remote
 server using the configured domain name even in dev mode.
+
+The helper defaults to uncommon local ports instead of the usual demo ports:
+
+- `38931`: Clojure backend
+- `38932`: Vite dev server
+
+If either port is already occupied, the helper scans upward for the next free
+port, writes the chosen values to `.self-host/config.json`, and reuses those
+saved values on later runs. If a saved port later becomes busy, the helper picks
+and saves a replacement before updating Caddy and starting tmux sessions.
 
 `stop` kills only Snow White's tmux sessions.
 
@@ -84,7 +95,7 @@ In production, the main Caddy site looks conceptually like this:
 ```caddyfile
 https://snow-white.pinky.lilf.ir {
     @backend path /api/* /ws /health
-    reverse_proxy @backend localhost:3000
+    reverse_proxy @backend localhost:38931
 
     root * /path/to/repo/frontend/build
     try_files {path} /index.html
@@ -100,10 +111,23 @@ proxied to Vite for hot reload.
 
 ## Ports and sessions
 
-The script refuses to start if a required port is already occupied:
+The script saves the selected runtime ports in `.self-host/config.json`:
 
-- `3000`: Clojure backend
-- `5173`: Vite dev server
+```json
+{
+  "mode": "dev",
+  "ports": {
+    "backend": 38931,
+    "frontend_dev": 38932
+  },
+  "url": "https://snow-white.pinky.lilf.ir"
+}
+```
+
+Manual backend workflows use the same backend default. `(go)` in the Clojure
+dev REPL starts `:38931`, and `(go 39000)` starts the same server on an explicit
+port. `clj -M:run` defaults to `:38931`, still honors `PORT`, and also accepts a
+port argument.
 
 tmux sessions:
 

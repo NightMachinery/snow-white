@@ -23,7 +23,7 @@ Everything else follows from this:
 
 ```
             ┌─────────────────────────────────────────────┐
-            │            Clojure backend (:3000)           │
+            │           Clojure backend (:38931)           │
  browser    │                                              │
  ───────────┤  registry: {lobby-name -> atom(lobby-map)}   │
   WebSocket │       │            ▲                          │

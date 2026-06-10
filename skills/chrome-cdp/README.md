@@ -27,7 +27,7 @@ here (the MCP's value was quirk-handling, not capability).
   `curl -s --noproxy '*' http://127.0.0.1:9222/json/version` returns JSON with a
   `"Browser"` field. (The user launches Chrome with `--remote-debugging-port=9222`;
   don't kill their browser.)
-- The frontend dev server up on `:5173` and backend on `:3000` (see repo `AGENTS.md`
+- The frontend dev server up on `:38932` and backend on `:38931` (see repo `AGENTS.md`
   / `docs/README.md` for how to start them; remember `NO_PROXY=127.0.0.1,localhost`).
 - Node ≥ 22 (built-in `WebSocket`). This repo's Node is fine (`node -v`).
 
@@ -47,7 +47,7 @@ node skills/chrome-cdp/shot.mjs --room=darkroom --auth=v2 --name=Gretel \
 Flags: `--room` (omit for home), `--auth`/`--name` (identity written to
 localStorage before navigating), `--theme=light|dark`, `--vp=desktop|mobile`,
 `--out=PATH` (PNG), `--probe` (print JSON). Env overrides: `SNOW_ORIGIN`
-(default `http://localhost:5173`), `CHROME_CDP` (default `http://127.0.0.1:9222`).
+(default `http://localhost:38932`), `CHROME_CDP` (default `http://127.0.0.1:9222`).
 
 `--probe` prints, e.g.:
 

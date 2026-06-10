@@ -4,6 +4,6 @@
   (:gen-class))
 
 (defn -main [& args]
-  (let [port (Integer/parseInt (or (first args) (System/getenv "PORT") "3000"))]
+  (let [port (Integer/parseInt (or (first args) (System/getenv "PORT") "38931"))]
     (server/start! port)
     @(promise))) ; block forever

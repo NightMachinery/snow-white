@@ -174,7 +174,7 @@ that single boundary.
 `dev/user.clj` is loaded automatically by `clj -M:dev`. It gives you:
 
 ```clojure
-(go)              ; start the server on :3000
+(go)              ; start the server on :38931
 (def L (seed! 5)) ; create a lobby "dev-5" with 5 fake seated players
 (sim! L)          ; drive a whole game, printing the state at each step
 (show L)          ; deref and inspect the current lobby map

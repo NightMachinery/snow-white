@@ -19,6 +19,7 @@ import sys
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import Callable
 from urllib.parse import urlparse
 
 
@@ -32,8 +33,8 @@ CADDYFILE = Path.home() / "Caddyfile"
 DEFAULT_URL = "https://snow-white.pinky.lilf.ir"
 DEFAULT_NODE_VERSION = "24"
 
-BACKEND_PORT = 3000
-FRONTEND_DEV_PORT = 5173
+DEFAULT_BACKEND_PORT = 38931
+DEFAULT_FRONTEND_DEV_PORT = 38932
 PROD_SESSION = "snow-white-backend"
 DEV_BACKEND_SESSION = "snow-white-dev-backend"
 DEV_FRONTEND_SESSION = "snow-white-dev-frontend"
@@ -50,12 +51,31 @@ PROXY_ENV_NAMES = (
     "npm_config_https_proxy",
     "NO_PROXY",
     "no_proxy",
+    "SNOW_BACKEND",
 )
 
 
 class Mode(str, Enum):
     PROD = "prod"
     DEV = "dev"
+
+
+@dataclass(frozen=True)
+class Ports:
+    backend: int = DEFAULT_BACKEND_PORT
+    frontend_dev: int = DEFAULT_FRONTEND_DEV_PORT
+
+    def to_json(self) -> dict[str, int]:
+        return {"backend": self.backend, "frontend_dev": self.frontend_dev}
+
+    @classmethod
+    def from_json(cls, raw: object) -> "Ports":
+        if not isinstance(raw, dict):
+            return cls()
+        return cls(
+            backend=int(raw.get("backend", DEFAULT_BACKEND_PORT)),
+            frontend_dev=int(raw.get("frontend_dev", DEFAULT_FRONTEND_DEV_PORT)),
+        )
 
 
 @dataclass(frozen=True)
@@ -85,10 +105,11 @@ class Site:
 class Config:
     site: Site
     mode: Mode
+    ports: Ports = Ports()
 
     def to_json(self) -> str:
         return json.dumps(
-            {"url": self.site.origin, "mode": self.mode.value},
+            {"url": self.site.origin, "mode": self.mode.value, "ports": self.ports.to_json()},
             indent=2,
             sort_keys=True,
         )
@@ -96,7 +117,11 @@ class Config:
     @classmethod
     def from_json(cls, payload: str) -> "Config":
         raw = json.loads(payload)
-        return cls(site=parse_site_url(raw.get("url")), mode=Mode(raw.get("mode", Mode.PROD.value)))
+        return cls(
+            site=parse_site_url(raw.get("url")),
+            mode=Mode(raw.get("mode", Mode.PROD.value)),
+            ports=Ports.from_json(raw.get("ports")),
+        )
 
 
 def parse_site_url(value: str | None) -> Site:
@@ -135,17 +160,17 @@ def frontend_dev_host() -> str:
     return "localhost" if platform.system() == "Darwin" else "0.0.0.0"
 
 
-def caddy_dev_upstream() -> str:
-    return f"localhost:{FRONTEND_DEV_PORT}"
+def caddy_dev_upstream(ports: Ports) -> str:
+    return f"localhost:{ports.frontend_dev}"
 
 
-def render_caddy_block(site: Site, mode: Mode) -> str:
+def render_caddy_block(site: Site, mode: Mode, ports: Ports = Ports()) -> str:
     if mode == Mode.PROD:
         frontend = f"""	root * {BUILD_DIR}
 	try_files {{path}} /index.html
 	file_server"""
     else:
-        frontend = f"""	reverse_proxy {caddy_dev_upstream()}"""
+        frontend = f"""	reverse_proxy {caddy_dev_upstream(ports)}"""
 
     return f"""{MANAGED_START}
 {site.opposite_origin} {{
@@ -154,7 +179,7 @@ def render_caddy_block(site: Site, mode: Mode) -> str:
 
 {site.origin} {{
 	@backend path /api/* /ws /health
-	reverse_proxy @backend localhost:{BACKEND_PORT}
+	reverse_proxy @backend localhost:{ports.backend}
 
 {frontend}
 }}
@@ -162,8 +187,8 @@ def render_caddy_block(site: Site, mode: Mode) -> str:
 """
 
 
-def update_caddyfile(site: Site, mode: Mode) -> None:
-    block = render_caddy_block(site, mode)
+def update_caddyfile(site: Site, mode: Mode, ports: Ports) -> None:
+    block = render_caddy_block(site, mode, ports)
     existing = CADDYFILE.read_text() if CADDYFILE.exists() else ""
     start = existing.find(MANAGED_START)
     end = existing.find(MANAGED_END)
@@ -194,10 +219,23 @@ def port_free(port: int) -> bool:
         return sock.connect_ex(("127.0.0.1", port)) != 0
 
 
-def require_free_ports(ports: list[int]) -> None:
-    busy = [port for port in ports if not port_free(port)]
-    if busy:
-        raise RuntimeError("Required port(s) already in use: " + ", ".join(map(str, busy)))
+def find_free_port(
+    preferred: int,
+    *,
+    reserved: set[int] | None = None,
+    is_free: Callable[[int], bool] = port_free,
+) -> int:
+    reserved = reserved or set()
+    for port in range(preferred, 65536):
+        if port not in reserved and is_free(port):
+            return port
+    raise RuntimeError(f"No free port found at or above {preferred}")
+
+
+def allocate_ports(preferred: Ports, *, is_free: Callable[[int], bool] = port_free) -> Ports:
+    backend = find_free_port(preferred.backend, is_free=is_free)
+    frontend_dev = find_free_port(preferred.frontend_dev, reserved={backend}, is_free=is_free)
+    return Ports(backend=backend, frontend_dev=frontend_dev)
 
 
 def tmux_kill(session: str) -> None:
@@ -245,80 +283,88 @@ def reload_caddy() -> None:
     run(["caddy", "reload", "--config", str(CADDYFILE)])
 
 
-def start_backend_prod() -> None:
-    require_free_ports([BACKEND_PORT])
-    tmuxnew(PROD_SESSION, "clj -M:run", cwd=BACKEND, env_args=tmux_env_args())
+def start_backend_prod(ports: Ports) -> None:
+    tmuxnew(PROD_SESSION, f"clj -M:run {ports.backend}", cwd=BACKEND, env_args=tmux_env_args())
 
 
-def start_backend_dev() -> None:
-    require_free_ports([BACKEND_PORT])
+def start_backend_dev(ports: Ports) -> None:
     tmuxnew(DEV_BACKEND_SESSION, "clj -M:dev", cwd=BACKEND, env_args=tmux_env_args())
-    run(["tmux", "send-keys", "-t", DEV_BACKEND_SESSION, "(go)", "Enter"])
+    run(["tmux", "send-keys", "-t", DEV_BACKEND_SESSION, f"(go {ports.backend})", "Enter"])
 
 
-def start_frontend_dev() -> None:
-    require_free_ports([FRONTEND_DEV_PORT])
-    command = f"pnpm dev --host {frontend_dev_host()} --port {FRONTEND_DEV_PORT}"
-    tmuxnew(DEV_FRONTEND_SESSION, shell_with_node(command), cwd=FRONTEND, env_args=tmux_env_args())
+def frontend_dev_command(ports: Ports) -> tuple[str, dict[str, str]]:
+    command = f"pnpm dev --host {frontend_dev_host()} --port {ports.frontend_dev}"
+    return command, {"SNOW_BACKEND": f"http://localhost:{ports.backend}"}
+
+
+def start_frontend_dev(ports: Ports) -> None:
+    command, env = frontend_dev_command(ports)
+    tmuxnew(DEV_FRONTEND_SESSION, shell_with_node(command), cwd=FRONTEND, env_args=tmux_env_args(os.environ | env))
 
 
 def resolve_config(url: str | None, fallback_mode: Mode = Mode.PROD) -> Config:
     if url:
-        return Config(parse_site_url(url), fallback_mode)
+        existing = load_config()
+        return Config(parse_site_url(url), fallback_mode, existing.ports if existing else Ports())
     existing = load_config()
     if existing:
         return Config(existing.site, fallback_mode)
     return Config(parse_site_url(None), fallback_mode)
 
 
+def resolve_runtime_config(url: str | None, mode: Mode) -> Config:
+    config = resolve_config(url, mode)
+    return Config(config.site, config.mode, allocate_ports(config.ports))
+
+
 def command_setup(url: str | None) -> None:
     command_stop()
-    config = resolve_config(url, Mode.PROD)
+    config = resolve_runtime_config(url, Mode.PROD)
     ensure_tools(["caddy", "clj", "pnpm", "tmux", "zsh"])
     install_frontend()
     build_frontend()
-    update_caddyfile(config.site, Mode.PROD)
+    update_caddyfile(config.site, Mode.PROD, config.ports)
     save_config(config)
     reload_caddy()
-    start_backend_prod()
+    start_backend_prod(config.ports)
 
 
 def command_redeploy(url: str | None) -> None:
     command_stop()
-    config = resolve_config(url, Mode.PROD)
+    config = resolve_runtime_config(url, Mode.PROD)
     ensure_tools(["caddy", "clj", "pnpm", "tmux", "zsh"])
     install_frontend()
     build_frontend()
-    update_caddyfile(config.site, Mode.PROD)
+    update_caddyfile(config.site, Mode.PROD, config.ports)
     save_config(config)
     reload_caddy()
-    start_backend_prod()
+    start_backend_prod(config.ports)
 
 
 def command_start(url: str | None) -> None:
     command_stop()
-    config = resolve_config(url, Mode.PROD)
+    config = resolve_runtime_config(url, Mode.PROD)
     ensure_tools(["caddy", "clj", "tmux"])
     if not BUILD_DIR.exists():
         ensure_tools(["pnpm", "zsh"])
         install_frontend()
         build_frontend()
-    update_caddyfile(config.site, Mode.PROD)
+    update_caddyfile(config.site, Mode.PROD, config.ports)
     save_config(config)
     reload_caddy()
-    start_backend_prod()
+    start_backend_prod(config.ports)
 
 
 def command_dev_start(url: str | None) -> None:
     command_stop()
-    config = resolve_config(url, Mode.DEV)
+    config = resolve_runtime_config(url, Mode.DEV)
     ensure_tools(["caddy", "clj", "pnpm", "tmux", "zsh"])
     install_frontend()
-    update_caddyfile(config.site, Mode.DEV)
+    update_caddyfile(config.site, Mode.DEV, config.ports)
     save_config(config)
     reload_caddy()
-    start_backend_dev()
-    start_frontend_dev()
+    start_backend_dev(config.ports)
+    start_frontend_dev(config.ports)
 
 
 def command_stop() -> None:
@@ -332,18 +378,21 @@ def command_status() -> None:
     if config:
         print(f"url: {config.site.origin}")
         print(f"mode: {config.mode.value}")
+        print(f"backend port: {config.ports.backend}")
+        print(f"frontend dev port: {config.ports.frontend_dev}")
     for session in (PROD_SESSION, DEV_BACKEND_SESSION, DEV_FRONTEND_SESSION):
         if shutil.which("tmux") is None:
             print(f"tmux {session}: tmux not installed")
         else:
             found = subprocess.run(["tmux", "has-session", "-t", session], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
             print(f"tmux {session}: {'running' if found else 'stopped'}")
-    for port in (BACKEND_PORT, FRONTEND_DEV_PORT):
+    ports = config.ports if config else Ports()
+    for port in (ports.backend, ports.frontend_dev):
         print(f"port {port}: {'free' if port_free(port) else 'in use'}")
     if shutil.which("curl") is None:
         print("backend health: curl not installed")
     else:
-        health = subprocess.run(["curl", "-fsS", f"http://localhost:{BACKEND_PORT}/health"], text=True, capture_output=True)
+        health = subprocess.run(["curl", "-fsS", f"http://localhost:{ports.backend}/health"], text=True, capture_output=True)
         print(f"backend health: {health.stdout.strip() if health.returncode == 0 else 'unavailable'}")
 
 

@@ -36,7 +36,7 @@ const args = Object.fromEntries(
   })
 );
 const { room = '', auth = '', name = '', theme = 'light', vp = 'desktop', out, probe } = args;
-const ORIGIN = process.env.SNOW_ORIGIN || 'http://localhost:5173';
+const ORIGIN = process.env.SNOW_ORIGIN || 'http://localhost:38932';
 const CDP = process.env.CHROME_CDP || 'http://127.0.0.1:9222';
 
 // Pick an existing page target, or create one.

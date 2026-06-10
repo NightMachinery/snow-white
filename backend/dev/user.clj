@@ -3,7 +3,7 @@
   start/stop the server and drive a whole game without a browser.
 
   Try:
-    (go)                         ; start the server on :3000
+    (go)                         ; start the server on :38931
     (def L (seed! 5))            ; create a lobby with 5 fake players
     (sim! L)                     ; run a full game to a winner, printing states
     (reset)                      ; reload changed namespaces + restart server"
@@ -12,7 +12,9 @@
             [snow-white.server :as server]
             [snow-white.views :as views]))
 
-(defn go [] (server/start! 3000))
+(defn go
+  ([] (go 38931))
+  ([port] (server/start! port)))
 (defn halt [] (server/stop!))
 
 (defn seed!
