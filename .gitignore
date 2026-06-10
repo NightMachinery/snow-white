@@ -21,6 +21,7 @@ node_modules/
 # Env
 .env
 .env.local
+.self-host/
 
 # Visual-polish screenshot scratch dir
 .snow-shots/
