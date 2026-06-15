@@ -1,6 +1,7 @@
 (ns snow-white.game-test
   (:require [clojure.test :refer [deftest is testing]]
-            [snow-white.game :as g]))
+            [snow-white.game :as g]
+            [snow-white.words :as words]))
 
 (defn- lobby-with-players
   "Build a lobby with n joined+seated players :p0..:pn-1, owned by :p0."
@@ -196,3 +197,56 @@
         voters (take 3 (remove #{:p3} (keys (:players l))))
         l (reduce #(g/village-vote %1 %2 :p0) l voters)]
     (is (= :end-game (:game-state l)))))
+
+;; --- wordpacks --------------------------------------------------------------
+
+(deftest new-lobby-defaults-to-snow-white-wordpack
+  (let [l (g/new-lobby :p0 "test")]
+    (is (= ["English_Snow_White_1"] (:selected-wordpacks l)))
+    (is (seq (:available-wordpacks l)))))
+
+(deftest set-wordpacks-normalizes-selection-in-lobby-only
+  (let [packs [{:id "English_Snow_White_1" :name "Default" :word-count 1 :words ["snow"]}
+               {:id "other" :name "Other" :word-count 1 :words ["wolf"]}]]
+    (with-redefs [words/wordpacks packs]
+      (let [l (g/new-lobby :p0 "test")]
+        (is (= ["other" "English_Snow_White_1"]
+               (:selected-wordpacks (g/set-wordpacks l ["other" "missing" "English_Snow_White_1" "other"]))))
+        (is (= ["English_Snow_White_1"]
+               (:selected-wordpacks (g/set-wordpacks l []))))
+        (is (= (:selected-wordpacks l)
+               (:selected-wordpacks (g/set-wordpacks (assoc l :game-state :mayor-pick) ["other"]))))))))
+
+(deftest start-game-draws-from-selected-wordpack-union
+  (let [packs [{:id "English_Snow_White_1" :name "Default" :word-count 2 :words ["snow" "apple"]}
+               {:id "other" :name "Other" :word-count 2 :words ["wolf" "apple"]}]]
+    (with-redefs [words/wordpacks packs
+                  words/random-words (fn [n selected]
+                                       (vec (take n (words/selected-words packs selected))))]
+      (let [l (-> (lobby-with-players 4)
+                  (g/set-pick-count 3)
+                  (g/set-wordpacks ["other" "English_Snow_White_1"])
+                  g/start-game)]
+        (is (= ["wolf" "apple" "snow"] (:words l)))))))
+
+(deftest start-game-normalizes-invalid-wordpack-selection
+  (let [packs [{:id "English_Snow_White_1" :name "Default" :word-count 1 :words ["snow"]}]]
+    (with-redefs [words/wordpacks packs
+                  words/random-words (fn [n selected]
+                                       (is (= ["English_Snow_White_1"] selected))
+                                       (vec (repeat n "snow")))]
+      (let [l (-> (lobby-with-players 4)
+                  (assoc :selected-wordpacks ["missing"])
+                  g/start-game)]
+        (is (= ["English_Snow_White_1"] (:selected-wordpacks l)))
+        (is (= ["snow" "snow"] (:words l)))))))
+
+(deftest reset-preserves-wordpack-selection
+  (let [packs [{:id "English_Snow_White_1" :name "Default" :word-count 1 :words ["snow"]}
+               {:id "other" :name "Other" :word-count 1 :words ["wolf"]}]]
+    (with-redefs [words/wordpacks packs]
+      (let [l (-> (lobby-with-players 4)
+                  (g/set-wordpacks ["other"])
+                  g/start-game
+                  g/reset-game)]
+        (is (= ["other"] (:selected-wordpacks l)))))))

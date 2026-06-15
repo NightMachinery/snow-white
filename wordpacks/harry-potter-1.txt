@@ -1,0 +1,141 @@
+# Harry_Potter_1
+wand
+wizard
+witch
+cauldron
+potion
+spell
+charm
+broom
+broom closet
+cloak
+robe
+scarf
+hat
+trunk
+owl
+cat
+rat
+toad
+letter
+parchment
+quill
+ink
+candle
+torch
+portrait
+ghost
+poltergeist
+password
+feast
+pumpkin
+treacle tart
+chocolate frog
+butterbeer
+firewhisky
+professor
+caretaker
+groundskeeper
+headmaster
+student
+dormitory
+common room
+great hall
+staircase
+dungeon
+corridor
+classroom
+library
+greenhouse
+tower
+hut
+forest
+lake
+train
+platform
+flying car
+motorbike
+map
+newspaper
+prophecy
+horcrux
+patronus
+pensieve
+time turner
+floo powder
+invisibility cloak
+phoenix
+basilisk
+hippogriff
+werewolf
+dementor
+house elf
+goblin
+dragon
+unicorn
+troll
+giant spider
+snitch
+Golden Snitch
+Quaffle
+Bludger
+broomstick
+seeker
+keeper
+beater
+chaser
+quidditch
+sorting hat
+wandmaker
+death eater
+auror
+ministry
+Azkaban
+Hogwarts
+Gryffindor
+Slytherin
+Ravenclaw
+Hufflepuff
+Hogsmeade
+Diagon Alley
+Platform Nine and Three-Quarters
+Forbidden Forest
+Room of Requirement
+Chamber of Secrets
+Triwizard Cup
+Elder Wand
+Resurrection Stone
+Philosopher's Stone
+Mirror of Erised
+Marauder's Map
+Daily Prophet
+Knight Bus
+Whomping Willow
+Goblet of Fire
+Harry Potter
+Hermione
+Ron
+Dumbledore
+Snape
+McGonagall
+Hagrid
+Sirius
+Lupin
+Dobby
+Voldemort
+Draco
+Ginny
+Neville
+Luna
+Fred
+George
+Bellatrix
+Cedric
+Umbridge
+Molly
+Arthur
+Buckbeak
+Fawkes
+Hedwig
+Crookshanks
+Nagini

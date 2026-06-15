@@ -1,12 +1,11 @@
-{:paths ["src" "resources"]
+{:paths ["src"]
 
  :deps
  {org.clojure/clojure       {:mvn/version "1.12.0"}
   http-kit/http-kit         {:mvn/version "2.8.0"}   ; HTTP server + WebSocket
   ring/ring-core            {:mvn/version "1.13.0"}  ; request/response helpers, middleware
   metosin/reitit-ring       {:mvn/version "0.7.2"}   ; data-driven routing
-  com.cognitect/transit-clj {:mvn/version "1.0.333"} ; transit wire format
-  org.clojure/data.json     {:mvn/version "2.5.1"}}  ; read wordList.json
+  com.cognitect/transit-clj {:mvn/version "1.0.333"}} ; transit wire format
 
  :aliases
  {;; REPL-driven development: `clj -M:dev` starts nREPL plus an inline client.

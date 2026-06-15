@@ -85,6 +85,8 @@
    :players          {}                ; auth-id -> player
    :seats            (zipmap seat-ids (repeat nil)) ; seat -> auth-id
    :settings         {:minutes 1 :seconds 0}
+   :available-wordpacks (words/available-wordpacks)
+   :selected-wordpacks (words/normalize-selection [words/default-wordpack-id])
    :mayor-eligibility {:villager true :seer false :werewolf false}
    :timer-minutes    1
    :pick-count       2
@@ -341,6 +343,16 @@
           lobby
           [:shared-maybe-pool :soft-costs :one-at-a-time :lock-seating]))
 
+(defn set-wordpacks
+  "Set the room wordpack selection. Wordpacks are lobby-only settings because a
+  running round should keep the candidate bank it started with."
+  [lobby selected]
+  (if (= :lobby (:game-state lobby))
+    (assoc lobby
+           :available-wordpacks (words/available-wordpacks)
+           :selected-wordpacks (words/normalize-selection selected))
+    lobby))
+
 ;; ---------------------------------------------------------------------------
 ;; Mod player-management powers (gated at the edge)
 ;; ---------------------------------------------------------------------------
@@ -382,7 +394,8 @@
   (let [seated-auths (->> (:players lobby) (filter (comp seated? val)) (map key) vec)]
     (if (< (count seated-auths) 4)
       lobby
-      (let [roles-by-auth (roles/assign-roles seated-auths)
+      (let [selected-wordpacks (words/normalize-selection (:selected-wordpacks lobby))
+            roles-by-auth (roles/assign-roles seated-auths)
             mayor (roles/choose-mayor roles-by-auth (:mayor-eligibility lobby))
             seer  (some (fn [[a r]] (when (= r :seer) a)) roles-by-auth)
             wolves (->> roles-by-auth (filter #(= :werewolf (val %))) (map key) set)
@@ -396,10 +409,11 @@
                :mayor mayor
                :seer seer
                :werewolves wolves
+               :selected-wordpacks selected-wordpacks
                ;; (re)load the token budget from the configured maxes
                :tokens (:max-tokens lobby start-tokens)
                :maybe-tokens (:max-maybe-tokens lobby start-maybe-tokens)
-               :words (words/random-words (:pick-count lobby)))))))
+               :words (words/random-words (:pick-count lobby) selected-wordpacks))))))
 
 (defn mayor-pick
   "Mayor commits to the secret word and the question round begins."

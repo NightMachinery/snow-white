@@ -93,6 +93,7 @@
           :settings/eligibility (reg/update-lobby! lobby mod-gate me game/set-mayor-eligibility (:roles msg))
           :settings/budget      (reg/update-lobby! lobby mod-gate me game/set-budget (:budget msg))
           :settings/rules       (reg/update-lobby! lobby mod-gate me game/set-rules (:rules msg))
+          :settings/wordpacks   (reg/update-lobby! lobby mod-gate me game/set-wordpacks (:wordpacks msg))
 
           ;; --- mod player management (mod-gated) ---
           :mod/seat     (reg/update-lobby! lobby mod-gate me game/mod-seat (:target msg))
