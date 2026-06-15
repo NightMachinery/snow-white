@@ -73,13 +73,22 @@ the expression needs a function body.
 Effects are an escape hatch for *side effects*, not for computing values. We use
 them for exactly three things:
 
-- Opening/closing the WebSocket when the room page mounts/unmounts:
+- Opening/closing the WebSocket when the room page has a real saved name:
+
   ```ts
   $effect(() => {
-    conn.connect(room, identity.name || 'Player');
+    if (!canConnect) return;
+    conn.connect(room, savedName);
     return () => conn.disconnect();   // cleanup on unmount / room change
   });
   ```
+
+  This gate matters for invite links. The home page already requires a name before
+  navigating, but a direct `/room/<lobby>` visit can happen before `snow:name`
+  exists in `localStorage`. In that case the room page renders a small name form
+  and waits to open the WebSocket until `identity.setName(...)` has saved a
+  trimmed display name. The server then creates the player with the intended base
+  name instead of the generic `Player` fallback.
 - The countdown timer's `setInterval` (with a cleanup return).
 - Applying the persisted theme class on mount.
 
