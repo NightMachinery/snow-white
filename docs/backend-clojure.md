@@ -10,7 +10,7 @@ Clojure CLI projects are configured by `deps.edn` — a map of dependencies and
 *aliases* (named extra configurations).
 
 ```clojure
-{:paths ["src" "resources"]            ; src on the classpath; resources too
+{:paths ["src"]                        ; src on the classpath
  :deps  {org.clojure/clojure {:mvn/version "1.12.0"}
          http-kit/http-kit   {:mvn/version "2.8.0"}
          ...}
@@ -71,6 +71,16 @@ Why this matters:
 >
 > The `->` ("thread-first") macro pipes `lobby` through each form. Structural
 > sharing makes these copies cheap.
+
+### Wordpacks
+
+`words.clj` is deliberately small and testable. It loads `../wordpacks/*.txt`
+when the backend process starts (or `wordpacks/*.txt` if the JVM cwd is the repo
+root). Each file is parsed as one pack: trim lines, ignore blanks and `#`
+comments, use a leading comment as the display name, and keep a `:word-count` for
+the settings UI. Rooms store only selected pack ids. At `start-game`, the backend
+normalizes those ids and draws from the de-duplicated union, so invalid or stale
+ids fall back to `English_Snow_White_1`.
 
 ## 2. Holding state: **one atom per lobby**
 

@@ -48,6 +48,9 @@ then immediately broadcasts a `:lobby/state` to everyone in the room.
 - `:seer`, `:werewolves`, `:wolf-votes` — empty/`nil` until end-game.
 - `:you` — a convenience block of your own private facts:
   `{:auth-id :role :is-mayor :can-moderate :knows-word}`.
+- `:available-wordpacks` and `:selected-wordpacks` are public room settings.
+  Wordpack metadata contains `:id`, `:name`, and `:word-count`, never the hidden
+  word list itself.
 
 ## Client → server commands
 
@@ -67,6 +70,7 @@ remain strings; enum-like values such as `:type` and `:answer` are keywords.
 | `:settings/eligibility` | `:roles {…}` | (mod) Which roles can be Mayor. |
 | `:settings/budget` | `:budget {:tokens? :maybe-tokens?}` | (mod) Set the token-budget sizes. |
 | `:settings/rules` | `:rules {…}` | (mod) Toggle `:shared-maybe-pool` `:soft-costs` `:one-at-a-time` `:lock-seating`. |
+| `:settings/wordpacks` | `:wordpacks [<id> …]` | (mod, lobby only) Select one or more wordpacks; the next game draws from their union. |
 | `:mod/unseat` | `:target` | (mod) Bench a player, freeing their seat and removing them from start/vote participation. |
 | `:mod/seat` | `:target` | (mod) Seat a benched player/spectator. |
 | `:game/start` | — | (mod) Deal roles, pick Mayor, draw words. |

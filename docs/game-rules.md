@@ -22,14 +22,16 @@ eligible; villager-only by default). The Mayor answers the questions.
 ## Flow
 
 1. **Lobby** — players take seats (up to 20 seated participants; others spectate). Mods
-   configure the timer, candidate-word count, mayor eligibility, the token economy
-   (above), and may **bench** a player or **seat** a spectator. With *Lock seating*
+   configure the timer, candidate-word count, selected wordpacks, mayor
+   eligibility, the token economy (above), and may **bench** a player or
+   **seat** a spectator. With *Lock seating*
    on, only mods move players between seat and bench. The same settings panel is
    available (collapsed) during the game, so mods can adjust mid-round.
    Offline seated players still count for starting, roles, and vote quorum;
    mods explicitly bench anyone who is not coming back.
-2. **Mayor picks** — the Mayor is shown N random candidate words and chooses one
-   secret word. Only the Mayor, Seer, and Wolves will know it.
+2. **Mayor picks** — the Mayor is shown N random candidate words from the room's
+   selected wordpacks and chooses one secret word. Only the Mayor, Seer, and
+   Wolves will know it.
 3. **Question round** — players ask yes/no questions. The Mayor answers each
    with **Yes / No / Maybe / So close / Way off / Correct**, or discards it.
    - Each player may have **one pending (unanswered) question at a time** and can

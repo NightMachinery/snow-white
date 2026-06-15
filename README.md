@@ -23,6 +23,7 @@ then voting to unmask the hidden roles.
 ```
 backend/     Clojure game server (deps.edn, REPL-driven)
 frontend/    SvelteKit 5 app
+wordpacks/   Newline-separated wordpack .txt files loaded by the backend
 docs/        Teaching-level docs: how this project works (Svelte + Clojure)
 learn/       Standalone skill-deepening notes & exercises
 .agents/     Reusable agent skills

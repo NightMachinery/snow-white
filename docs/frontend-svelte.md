@@ -140,6 +140,14 @@ who cannot easily inspect the JavaScript console.
 participants and count for starting and vote quorum even when offline; active
 players are the online subset used only when the UI needs presence.
 
+The settings panel also demonstrates a small lobby-only multi-select.
+`available-wordpacks` is metadata from the server (`id`, `name`, `word-count`),
+and `selected-wordpacks` is the room setting sent back with
+`settings/wordpacks`. The UI disables removing the last selected pack, while the
+backend still normalizes defensively. This is a good example of Svelte staying a
+pure function of the server snapshot: the client presents controls, but Clojure
+keeps the authoritative selection.
+
 ## 3. Templates: blocks, events, snippets
 
 - **Keyed each** (always key by a stable id, never the index):

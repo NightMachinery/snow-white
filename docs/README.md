@@ -84,7 +84,7 @@ still letting you drive the in-memory lobby registry from tmux.
 backend/src/snow_white/
   game.clj      ← pure rules (the part to read first)
   roles.clj     ← role dealing, mayor pick, win resolution (pure)
-  words.clj     ← the word bank
+  words.clj     ← file-backed wordpacks
   ids.clj       ← random auth ids + migration tokens
   registry.clj  ← per-lobby atoms + connection tracking (mutation lives here)
   views.clj     ← per-recipient redaction
@@ -104,3 +104,12 @@ frontend/src/routes/
   +page.svelte                 ← home (create/join)
   room/[lobby]/+page.svelte    ← renders one screen per game-state
 ```
+
+## Wordpacks
+
+Snow White loads candidate words from repo-root `wordpacks/*.txt`. Each file is
+one wordpack: one word or phrase per line, blank lines ignored, and lines
+beginning with `#` treated as comments. A leading `# Title` gives the pack its
+display name. Rooms default to `English_Snow_White_1`, and moderators can select
+multiple packs in the lobby; the game draws from the de-duplicated union of
+those packs.
