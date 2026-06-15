@@ -36,3 +36,13 @@ test('encode keeps ordinary command string values as strings', () => {
 	assert.match(encoded, /"Is it snow\?"/);
 	assert.doesNotMatch(encoded, /~:Is it snow\?/);
 });
+
+test('encode keeps wordpack ids as strings in settings command', () => {
+	const encoded = encode({ type: 'settings/wordpacks', wordpacks: ['English_Snow_White_1', 'Persian_1'] });
+
+	assert.match(encoded, /~:settings\/wordpacks/);
+	assert.match(encoded, /~:wordpacks/);
+	assert.match(encoded, /"English_Snow_White_1"/);
+	assert.match(encoded, /"Persian_1"/);
+	assert.doesNotMatch(encoded, /~:English_Snow_White_1/);
+});

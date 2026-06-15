@@ -32,6 +32,12 @@ export interface Question {
 	answer?: Answer;
 }
 
+export interface Wordpack {
+	id: string;
+	name: string;
+	'word-count': number;
+}
+
 export interface Player {
 	'auth-id': string;
 	'base-name': string;
@@ -66,6 +72,8 @@ export interface Lobby {
 	players: Record<string, Player>;
 	seats: Record<string, string | null>;
 	settings: { minutes: number; seconds: number };
+	'available-wordpacks': Wordpack[];
+	'selected-wordpacks': string[];
 	'mayor-eligibility': { villager: boolean; seer: boolean; werewolf: boolean };
 	'timer-minutes': number;
 	'pick-count': number;

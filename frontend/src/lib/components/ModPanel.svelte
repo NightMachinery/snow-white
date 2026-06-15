@@ -35,6 +35,12 @@
 	function setRule(key: string, value: boolean) {
 		conn.send({ type: 'settings/rules', rules: { [key]: value } });
 	}
+	function toggleWordpack(id: string) {
+		const selected = lobby['selected-wordpacks'];
+		const next = selected.includes(id) ? selected.filter((pack) => pack !== id) : [...selected, id];
+		if (next.length === 0) return;
+		conn.send({ type: 'settings/wordpacks', wordpacks: next });
+	}
 	function unseat(target: string) {
 		conn.send({ type: 'mod/unseat', target });
 	}
@@ -44,6 +50,7 @@
 
 	const seated = $derived(seatedPlayers(lobby));
 	const benched = $derived(bystanders(lobby));
+	const selectedWordpacks = $derived(new Set(lobby['selected-wordpacks']));
 </script>
 
 <div class="rounded-2xl border border-frost dark:border-white/10">
@@ -88,6 +95,36 @@
 						{#each [1, 2, 3, 4] as n (n)}<option value={n}>{n}</option>{/each}
 					</select>
 				</label>
+			{/if}
+
+			<!-- Wordpacks (lobby only — fixed once a game starts) -->
+			{#if !inGame}
+				<div class="flex flex-col gap-2 border-t border-frost/70 pt-2 dark:border-white/5">
+					<div class="flex items-baseline justify-between gap-2">
+						<span class="text-mist">Wordpacks</span>
+						<span class="text-xs text-mist">{lobby['selected-wordpacks'].length} selected</span>
+					</div>
+					<div class="grid max-h-44 gap-1 overflow-y-auto pr-1">
+						{#each lobby['available-wordpacks'] as pack (pack.id)}
+							{@const selected = selectedWordpacks.has(pack.id)}
+							<label
+								class="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 transition hover:bg-frost/70 dark:hover:bg-white/10"
+							>
+								<span class="min-w-0">
+									<span class="block truncate" dir="auto">{pack.name}</span>
+									<span class="text-xs text-mist">{pack['word-count']} words</span>
+								</span>
+								<input
+									type="checkbox"
+									checked={selected}
+									disabled={!canMod || (selected && lobby['selected-wordpacks'].length === 1)}
+									onchange={() => toggleWordpack(pack.id)}
+									class="size-4 rounded border-frost text-apple-500 disabled:opacity-60"
+								/>
+							</label>
+						{/each}
+					</div>
+				</div>
 			{/if}
 
 			<!-- Token budget -->
