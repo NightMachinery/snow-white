@@ -8,6 +8,8 @@
 	import Play from '@lucide/svelte/icons/play';
 	import Eye from '@lucide/svelte/icons/eye';
 	import LogIn from '@lucide/svelte/icons/log-in';
+	import Link from '@lucide/svelte/icons/link';
+	import Check from '@lucide/svelte/icons/check';
 
 	let { lobby }: { lobby: Lobby } = $props();
 
@@ -18,6 +20,7 @@
 	const canStart = $derived(lobby.you['can-moderate'] && tableCount >= 4);
 	const amSeated = $derived(Boolean(myself?.seat) && !myself?.spectator);
 	let renameDraft = $state(identity.name);
+	let inviteCopied = $state(false);
 
 	function renameMe() {
 		const name = renameDraft.trim();
@@ -30,10 +33,51 @@
 	function mayor(id: string) { conn.send({ type: 'mod/mayor', target: id }); }
 	function promote(id: string) { conn.send({ type: 'mod/promote', target: id }); }
 	function demote(id: string) { conn.send({ type: 'mod/demote', target: id }); }
+
+	function legacyCopy(text: string): boolean {
+		const textarea = document.createElement('textarea');
+		textarea.value = text;
+		textarea.setAttribute('readonly', '');
+		textarea.style.position = 'fixed';
+		textarea.style.left = '-9999px';
+		document.body.appendChild(textarea);
+		textarea.select();
+		const ok = document.execCommand('copy');
+		document.body.removeChild(textarea);
+		return ok;
+	}
+
+	async function copyInviteLink() {
+		const url = `${location.origin}/room/${encodeURIComponent(lobby.name)}`;
+		try {
+			if (navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(url);
+			} else if (!legacyCopy(url)) {
+				throw new Error('copy failed');
+			}
+			inviteCopied = true;
+			setTimeout(() => (inviteCopied = false), 1500);
+		} catch {
+			prompt('Copy room invite link', url);
+		}
+	}
 </script>
 
 <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
 	<section>
+		<div class="mb-5 flex flex-col gap-3 rounded-card border border-apple-200 bg-apple-50/70 p-4 shadow-sm dark:border-apple-500/20 dark:bg-apple-500/10 sm:flex-row sm:items-center sm:justify-between">
+			<div>
+				<p class="font-display text-xl">Invite friends</p>
+				<p class="text-sm text-mist">Share this room link so players can join “<span dir="auto">{lobby.name}</span>”.</p>
+			</div>
+			<button
+				onclick={copyInviteLink}
+				class="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-apple-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-apple-600"
+			>
+				{#if inviteCopied}<Check class="size-4" /> Copied!{:else}<Link class="size-4" /> Copy room link{/if}
+			</button>
+		</div>
+
 		<div class="mb-3 flex items-center justify-between">
 			<h2 class="font-display text-2xl">Players at the table</h2>
 			<span class="text-sm text-mist">{tableCount} / 20</span>
