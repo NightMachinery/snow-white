@@ -546,10 +546,12 @@
       lobby)))
 
 (defn mod-set-preferred-mayor
-  "Remember a mod's preferred Mayor for the next deal. The preference is honored
+  "Toggle a mod's preferred Mayor for the next deal. The preference is honored
   only if that player is active when the game starts."
   [lobby target-auth]
-  (assoc lobby :preferred-mayor target-auth))
+  (if (= target-auth (:preferred-mayor lobby))
+    (assoc lobby :preferred-mayor nil)
+    (assoc lobby :preferred-mayor target-auth)))
 
 (defn- eligible-role?
   [eligibility role]

@@ -381,6 +381,15 @@
     (is (= "Sam 2" (get-in l [:players :b :display-name])))
     (is (some? (get-in l [:players :b :seat])))))
 
+(deftest preferred-mayor-click-toggles-selection
+  (let [l (lobby-with-players 4)
+        p1 (g/mod-set-preferred-mayor l :p1)
+        cleared (g/mod-set-preferred-mayor p1 :p1)
+        p2 (g/mod-set-preferred-mayor p1 :p2)]
+    (is (= :p1 (:preferred-mayor p1)))
+    (is (nil? (:preferred-mayor cleared)))
+    (is (= :p2 (:preferred-mayor p2)))))
+
 (deftest preferred-mayor-is-used-when-active-and-eligible
   (with-redefs [snow-white.roles/assign-roles (fn [_] {:p0 :seer :p1 :villager :p2 :villager :p3 :werewolf :p4 :villager})
                 snow-white.words/random-words (fn ([_] ["apple" "pear"]) ([_ _] ["apple" "pear"]))]

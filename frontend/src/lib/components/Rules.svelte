@@ -8,6 +8,7 @@
 <button
 	onclick={() => (open = true)}
 	aria-label="How to play"
+	title="How to play"
 	class="grid size-9 place-items-center rounded-full text-mist transition hover:bg-frost dark:hover:bg-white/10"
 >
 	<HelpCircle class="size-5" />
@@ -25,7 +26,7 @@
 		>
 			<div class="mb-3 flex items-center justify-between">
 				<h2 class="font-display text-2xl">How to play</h2>
-				<button onclick={() => (open = false)} class="text-mist hover:text-apple-500">
+				<button onclick={() => (open = false)} class="text-mist hover:text-apple-500" aria-label="Close rules" title="Close rules">
 					<X class="size-5" />
 				</button>
 			</div>

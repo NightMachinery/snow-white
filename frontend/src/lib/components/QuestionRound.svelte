@@ -72,6 +72,7 @@
 				<button
 					onclick={ask}
 					aria-label="Send question"
+					title="Send question"
 					class="grid place-items-center rounded-xl bg-apple-500 px-4 text-white transition hover:bg-apple-600"
 				>
 					<Send class="size-5" />
@@ -94,6 +95,7 @@
 						onclick={saveEdit}
 						disabled={edit.trim() === (myPending?.text ?? '')}
 						aria-label="Save edit"
+						title="Save edit"
 						class="grid place-items-center rounded-lg bg-apple-500 px-3 text-white transition hover:bg-apple-600 disabled:opacity-40"
 					>
 						<Check class="size-5" />
@@ -101,6 +103,7 @@
 					<button
 						onclick={discardMine}
 						aria-label="Discard my question"
+						title="Discard my question"
 						class="grid place-items-center rounded-lg border border-frost px-3 text-mist transition hover:bg-frost dark:border-white/10 dark:hover:bg-white/10"
 					>
 						<Trash2 class="size-5" />

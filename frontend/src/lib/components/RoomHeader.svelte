@@ -4,7 +4,7 @@
 	import Apple from '@lucide/svelte/icons/apple';
 	import Users from '@lucide/svelte/icons/users';
 	import Link from '@lucide/svelte/icons/link';
-	import Copy from '@lucide/svelte/icons/copy';
+	import MonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
 	import Check from '@lucide/svelte/icons/check';
 
 	let { lobby, room, right }: { lobby: Lobby; room: string; right?: import('svelte').Snippet } =
@@ -79,8 +79,8 @@
 			<Users class="size-4" />{seatedCount(lobby)}
 		</span>
 		{#if migrationToken}
-			<button onclick={copyMigrationLink} class="rounded-lg p-1.5 text-mist transition hover:bg-frost hover:text-apple-500 dark:hover:bg-white/10" title="Copy migrate-device link" aria-label="Copy migrate-device link">
-				{#if copiedMigration}<Check class="size-4 text-forest" />{:else}<Copy class="size-4" />{/if}
+			<button onclick={copyMigrationLink} class="rounded-lg p-1.5 text-mist transition hover:bg-frost hover:text-apple-500 dark:hover:bg-white/10" title="Copy your migrate-device link" aria-label="Copy your migrate-device link">
+				{#if copiedMigration}<Check class="size-4 text-forest" />{:else}<MonitorSmartphone class="size-4" />{/if}
 			</button>
 		{/if}
 		{@render right?.()}

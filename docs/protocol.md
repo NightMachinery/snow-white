@@ -101,7 +101,7 @@ remain strings; enum-like values such as `:type` and `:answer` are keywords.
 | `:settings/wordpacks` | `:wordpacks [<id> …]` | (mod, lobby only) Select one or more wordpacks; the next game draws from their union. |
 | `:mod/unseat` | `:target` | (mod) Bench a player, freeing their seat and removing them from start/vote participation. |
 | `:mod/seat` | `:target` | (mod) Seat a benched player/spectator. |
-| `:mod/mayor` | `:target` | (mod) Prefer this active player as next Mayor; roles are dealt so the Mayor receives an eligible role when possible. |
+| `:mod/mayor` | `:target` | (mod) Toggle this active player as preferred next Mayor; clicking the current preference clears it. Roles are dealt so the Mayor receives an eligible role when possible. |
 | `:mod/promote` | `:target` | (mod) Promote a player. Real mods create real mods; active temp mods create temp mods. |
 | `:mod/demote` | `:target` | (mod) Demote a mod you are allowed to demote. Owner can demote any promoted/temp mod; other mods can demote only people they promoted. |
 | `:player/rename` | `:name` | Rename yourself in the room, preserving identity and seat. |

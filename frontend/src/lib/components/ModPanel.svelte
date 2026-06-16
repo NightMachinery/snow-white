@@ -301,10 +301,10 @@
 								<span class="truncate" dir="auto">{p['display-name']}</span>
 								<div class="flex shrink-0 gap-1">
 									{#if !p['is-owner'] && !p['is-mod'] && !p['is-temp-mod']}
-										<button onclick={() => promote(p['auth-id'])} class="rounded-lg px-2 py-1 text-xs text-forest transition hover:bg-frost dark:hover:bg-white/10" aria-label="Promote moderator"><ShieldPlus class="size-3.5" /></button>
+										<button onclick={() => promote(p['auth-id'])} class="rounded-lg px-2 py-1 text-xs text-forest transition hover:bg-frost dark:hover:bg-white/10" aria-label="Promote moderator" title="Promote moderator"><ShieldPlus class="size-3.5" /></button>
 									{/if}
 									{#if !p['is-owner'] && (p['is-mod'] || p['is-temp-mod'])}
-										<button onclick={() => demote(p['auth-id'])} class="rounded-lg px-2 py-1 text-xs text-apple-500 transition hover:bg-frost dark:hover:bg-white/10" aria-label="Demote moderator"><ShieldMinus class="size-3.5" /></button>
+										<button onclick={() => demote(p['auth-id'])} class="rounded-lg px-2 py-1 text-xs text-apple-500 transition hover:bg-frost dark:hover:bg-white/10" aria-label="Demote moderator" title="Demote moderator"><ShieldMinus class="size-3.5" /></button>
 									{/if}
 									<button onclick={() => unseat(p['auth-id'])} class="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-mist transition hover:bg-frost dark:hover:bg-white/10"><UserMinus class="size-3.5" /> Bench</button>
 								</div>
@@ -315,10 +315,10 @@
 								<span class="truncate" dir="auto">{p['display-name']}</span>
 								<div class="flex shrink-0 gap-1">
 									{#if !p['is-owner'] && !p['is-mod'] && !p['is-temp-mod']}
-										<button onclick={() => promote(p['auth-id'])} class="rounded-lg px-2 py-1 text-xs text-forest transition hover:bg-apple-50 dark:hover:bg-white/5" aria-label="Promote moderator"><ShieldPlus class="size-3.5" /></button>
+										<button onclick={() => promote(p['auth-id'])} class="rounded-lg px-2 py-1 text-xs text-forest transition hover:bg-apple-50 dark:hover:bg-white/5" aria-label="Promote moderator" title="Promote moderator"><ShieldPlus class="size-3.5" /></button>
 									{/if}
 									{#if !p['is-owner'] && (p['is-mod'] || p['is-temp-mod'])}
-										<button onclick={() => demote(p['auth-id'])} class="rounded-lg px-2 py-1 text-xs text-apple-500 transition hover:bg-apple-50 dark:hover:bg-white/5" aria-label="Demote moderator"><ShieldMinus class="size-3.5" /></button>
+										<button onclick={() => demote(p['auth-id'])} class="rounded-lg px-2 py-1 text-xs text-apple-500 transition hover:bg-apple-50 dark:hover:bg-white/5" aria-label="Demote moderator" title="Demote moderator"><ShieldMinus class="size-3.5" /></button>
 									{/if}
 									<button onclick={() => seat(p['auth-id'])} class="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-apple-500 transition hover:bg-apple-50 dark:hover:bg-white/5"><UserPlus class="size-3.5" /> Seat</button>
 								</div>

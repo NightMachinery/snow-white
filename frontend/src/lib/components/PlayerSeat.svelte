@@ -6,7 +6,7 @@
 	import UserMinus from '@lucide/svelte/icons/user-minus';
 	import UserPlus from '@lucide/svelte/icons/user-plus';
 	import Star from '@lucide/svelte/icons/star';
-	import Copy from '@lucide/svelte/icons/copy';
+	import MonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
 	import Check from '@lucide/svelte/icons/check';
 	import ShieldPlus from '@lucide/svelte/icons/shield-plus';
 	import ShieldMinus from '@lucide/svelte/icons/shield-minus';
@@ -40,6 +40,12 @@
 	const initial = $derived((player['display-name'] || '?').charAt(0).toUpperCase());
 	const migrationToken = $derived(player['migration-token'] ?? (isYou ? lobby.you['migration-token'] : null));
 	const hasActions = $derived(Boolean(onbench || onseat || onmayor || onpromote || ondemote || migrationToken));
+	const mayorTooltip = $derived(
+		lobby['preferred-mayor'] === player['auth-id'] ? 'Clear preferred Mayor' : 'Prefer as next Mayor'
+	);
+	const migrateTooltip = $derived(
+		isYou ? 'Copy your migrate-device link' : "Copy this player's migrate-device link"
+	);
 	let copiedMigration = $state(false);
 	const cardClass = $derived([
 		'flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition',
@@ -108,12 +114,12 @@
 	{#if hasActions}
 		<span class="flex shrink-0 gap-1" role="group" aria-label="Player actions">
 			{#if migrationToken}
-				<button type="button" onclick={copyMigration} class="rounded-lg p-1.5 text-mist transition hover:bg-frost hover:text-apple-500 dark:hover:bg-white/10" aria-label="Copy migrate-device link" title="Copy migrate-device link">
-					{#if copiedMigration}<Check class="size-4 text-forest" />{:else}<Copy class="size-4" />{/if}
+				<button type="button" onclick={copyMigration} class="rounded-lg p-1.5 text-mist transition hover:bg-frost hover:text-apple-500 dark:hover:bg-white/10" aria-label={migrateTooltip} title={migrateTooltip}>
+					{#if copiedMigration}<Check class="size-4 text-forest" />{:else}<MonitorSmartphone class="size-4" />{/if}
 				</button>
 			{/if}
 			{#if onmayor}
-				<button type="button" onclick={() => onmayor?.(player['auth-id'])} class="rounded-lg p-1.5 text-mist transition hover:bg-frost hover:text-apple-500 dark:hover:bg-white/10" aria-label="Choose as Mayor">
+				<button type="button" onclick={() => onmayor?.(player['auth-id'])} class="rounded-lg p-1.5 text-mist transition hover:bg-frost hover:text-apple-500 dark:hover:bg-white/10" aria-label={mayorTooltip} title={mayorTooltip}>
 					<Star class={['size-4', lobby['preferred-mayor'] === player['auth-id'] && 'fill-apple-500 text-apple-500']} />
 				</button>
 			{/if}
@@ -128,12 +134,12 @@
 				</button>
 			{/if}
 			{#if onbench && player.seat && !player.spectator}
-				<button type="button" onclick={() => onbench?.(player['auth-id'])} class="rounded-lg p-1.5 text-mist transition hover:bg-frost dark:hover:bg-white/10" aria-label="Bench player">
+				<button type="button" onclick={() => onbench?.(player['auth-id'])} class="rounded-lg p-1.5 text-mist transition hover:bg-frost dark:hover:bg-white/10" aria-label="Bench player" title="Bench player">
 					<UserMinus class="size-4" />
 				</button>
 			{/if}
 			{#if onseat && (!player.seat || player.spectator)}
-				<button type="button" onclick={() => onseat?.(player['auth-id'])} class="rounded-lg p-1.5 text-apple-500 transition hover:bg-apple-50 dark:hover:bg-white/5" aria-label="Seat player">
+				<button type="button" onclick={() => onseat?.(player['auth-id'])} class="rounded-lg p-1.5 text-apple-500 transition hover:bg-apple-50 dark:hover:bg-white/5" aria-label="Seat player" title="Seat player">
 					<UserPlus class="size-4" />
 				</button>
 			{/if}
