@@ -50,6 +50,7 @@ export interface Player {
 	seat: string | null; // e.g. "seat-3"
 	color: string | null;
 	role: Role; // redacted to null unless you may see it
+	'public-role'?: boolean;
 	mayor: boolean;
 	'is-owner': boolean;
 	'is-mod': boolean;
@@ -101,7 +102,7 @@ export interface Lobby {
 	seer: string | null; // only revealed at end-game
 	werewolves: string[]; // revealed to Wolves during play and to everyone at end-game
 	words: string[]; // candidate words (mayor only sees during pick)
-	'chosen-word': string | null; // masked unless you know the word
+	'chosen-word': string | null; // masked unless you know the word or voting has begun
 	questions: Question[];
 	answered: Question[];
 	'question-log': Question[];

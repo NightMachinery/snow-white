@@ -4,7 +4,7 @@
 
 	let { lobby }: { lobby: Lobby } = $props();
 	const isMayor = $derived(lobby.you['is-mayor']);
-	const head = $derived(lobby.questions.at(-1));
+	const head = $derived(lobby.questions[0]);
 
 	const buttons = [
 		{ a: 'yes', label: 'Yes', cls: 'bg-forest text-white' },

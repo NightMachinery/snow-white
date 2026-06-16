@@ -102,6 +102,7 @@
     (is (= :lobby (:game-state l)))
     (is (nil? (:mayor l)))
     (is (empty? (:werewolves l)))
+    (is (every? (complement :public-role) (vals (:players l))))
     (is (= 5 (count (filter :seat (vals (:players l)))))))) ; seats preserved
 
 ;; --- question-round rules ---------------------------------------------------
@@ -295,14 +296,32 @@
     (is (some? (:mayor l)))
     (is (not= :ghost (:mayor l)))))
 
-(deftest question-queue-is-lifo
+(deftest question-queue-is-fifo
   (let [[l mayor askers] (into-question-round)
         l (-> l
               (g/ask-question (first askers) "Older?")
               (g/ask-question (second askers) "Newer?")
               (g/answer-question mayor :yes))]
-    (is (= "Newer?" (:text (first (:answered l)))))
-    (is (= ["Older?"] (mapv :text (:questions l))))))
+    (is (= "Older?" (:text (first (:answered l)))))
+    (is (= ["Newer?"] (mapv :text (:questions l))))))
+
+(deftest mayor-discard-is-fifo
+  (let [[l mayor askers] (into-question-round)
+        l (-> l
+              (g/ask-question (first askers) "Older?")
+              (g/ask-question (second askers) "Newer?")
+              (g/answer-question mayor :discard))]
+    (is (= "Older?" (:text (last (:question-log l)))))
+    (is (= ["Newer?"] (mapv :text (:questions l))))))
+
+(deftest mod-seating-mid-game-newcomer-makes-public-villager
+  (let [[l _ _] (into-question-round)
+        l (-> l
+              (g/join :late "Late Player")
+              (g/mod-seat :late))]
+    (is (= :villager (get-in l [:players :late :role])))
+    (is (true? (get-in l [:players :late :public-role])))
+    (is (g/seated? (get-in l [:players :late])))))
 
 (deftest mayor-discard-spends-discard-budget-and-logs-question
   (let [[l mayor askers] (into-question-round)

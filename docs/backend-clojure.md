@@ -265,3 +265,12 @@ sampling: if a mod picked an active player, the backend retries the random role
 deal until that player has a role allowed by `:mayor-eligibility` (for example,
 Villager or Werewolf by default). If the preferred player is not active, normal
 Mayor selection is used.
+
+Late spectators normally remain outside the active round. When a mod seats a
+no-role spectator after the game has started, `game/mod-seat` assigns
+`:role :villager` and `:public-role true`. The view layer uses that marker to
+show the Villager badge to everyone without revealing hidden dealt roles.
+
+The word reveal has a separate rule from role reveal: `views/lobby-view` reveals
+`:chosen-word` to everyone during vote states (`:word-guessed`, `:out-of-time`,
+`:out-of-tokens`) while keeping hidden roles redacted until `:end-game`.

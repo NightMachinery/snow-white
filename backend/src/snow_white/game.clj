@@ -107,7 +107,7 @@
    :werewolves       #{}              ; set of auth-ids
    :words            []                ; candidate words shown to Mayor
    :chosen-word      nil
-   :questions        []                ; pending questions (newest answered first)
+   :questions        []                ; pending questions (oldest answered first)
    :answered         []                ; answered/discarded history entries
    :question-log     []
    :so-close         nil
@@ -416,14 +416,20 @@
 
 (defn mod-seat
   "A mod seats a player (bypasses `:lock-seating`). No-op if the table is full
-  or no seat is free."
+  or no seat is free. During a live round, seating a no-role spectator makes them
+  a public Villager so everyone understands they joined after the deal."
   [lobby target-auth]
   (let [player (get-in lobby [:players target-auth])]
     (if (and player
              (nil? (:seat player))
              (< (seated-count lobby) max-active-players)
              (first-free-seat lobby))
-      (seat-player lobby target-auth)
+      (let [lobby (seat-player lobby target-auth)]
+        (if (and (not= :lobby (:game-state lobby))
+                 (nil? (get-in lobby [:players target-auth :role])))
+          (update-in lobby [:players target-auth] merge {:role :villager
+                                                         :public-role true})
+          lobby))
       lobby)))
 
 (defn mod-set-preferred-mayor
@@ -584,17 +590,17 @@
       (:so-close :way-off) (if soft? (main lobby) lobby)
       lobby)))
 
-(defn- newest-question [lobby]
-  (last (:questions lobby)))
+(defn- current-question [lobby]
+  (first (:questions lobby)))
 
-(defn- drop-newest-question [lobby]
-  (update lobby :questions pop))
+(defn- drop-current-question [lobby]
+  (update lobby :questions subvec-rest))
 
 (defn answer-question
-  "Mayor answers the newest queued question with one of `answer-types`.
+  "Mayor answers the oldest queued question with one of `answer-types`.
   Spends the configurable token economy and advances state as needed."
   [lobby auth-id answer]
-  (let [q (newest-question lobby)]
+  (let [q (current-question lobby)]
     (cond
       (or (not= (:game-state lobby) :question-round)
           (not= auth-id (:mayor lobby))
@@ -607,7 +613,7 @@
         (-> lobby
             (update :discard-tokens dec)
             (log-question q :discard {:discarded-by :mayor})
-            drop-newest-question)
+            drop-current-question)
         lobby)
 
       :else
@@ -615,7 +621,7 @@
             lobby (-> lobby
                       (update-in [:players asker :tokens answer] (fnil conj []) q)
                       (log-question q answer {})
-                      drop-newest-question)
+                      drop-current-question)
             lobby (case answer
                     :correct  (assoc lobby :correct q :game-state :word-guessed)
                     :so-close (assoc lobby :so-close q)
@@ -716,10 +722,11 @@
   [lobby]
   (let [players (reduce-kv
                  (fn [m a p]
-                   (assoc m a (assoc p
-                                     :role nil :mayor false
-                                     :tokens {:yes [] :no [] :maybe []
-                                              :so-close [] :way-off [] :correct []})))
+                   (assoc m a (-> p
+                                     (assoc :role nil :mayor false
+                                            :tokens {:yes [] :no [] :maybe []
+                                                     :so-close [] :way-off [] :correct []})
+                                     (dissoc :public-role))))
                  {} (:players lobby))]
     (assoc lobby
            :players players

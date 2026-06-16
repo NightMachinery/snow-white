@@ -5,9 +5,10 @@
 
   Who may know what:
   - The chosen word: the Mayor, the Seer, and the Werewolves (they 'know the
-    magic word'). Everyone learns it once the game ends.
+    magic word'). Everyone learns it once voting begins.
   - A player's role: only that player — until the game ends, when all roles and
-    the seer/wolves are revealed for the post-mortem.
+    the seer/wolves are revealed for the post-mortem. Late mod-seated Villagers
+    are marked public and shown to everyone.
   - Werewolves know each other; the Seer does not know the wolves.
 
   The view is still a plain map (just with secret fields removed/masked), so the
@@ -23,12 +24,16 @@
 
 (defn- ended? [lobby] (= (:game-state lobby) :end-game))
 
+(defn- word-revealed? [lobby]
+  (#{:word-guessed :out-of-time :out-of-tokens :end-game} (:game-state lobby)))
+
 (defn- redact-player
   "Strip another player's hidden role unless the recipient may see it."
   [lobby recipient auth player]
   (let [reveal-role?
         (or (= auth recipient)                ; your own role
             (ended? lobby)                     ; post-game reveal
+            (:public-role player)               ; late-seated public Villagers
             ;; werewolves see each other during the game
             (and (= (get-in lobby [:players recipient :role]) :werewolf)
                  (= (:role player) :werewolf)))]
@@ -42,7 +47,7 @@
                  (fn [m auth p] (assoc m auth (redact-player lobby recipient auth p)))
                  {} (:players lobby))
         reveal-secrets? (ended? lobby)
-        show-word? (or reveal-secrets? (knows-word? lobby recipient))]
+        show-word? (or (word-revealed? lobby) (knows-word? lobby recipient))]
     (-> lobby
         (assoc :players players)
         ;; mask the chosen word unless entitled

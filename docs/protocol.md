@@ -43,8 +43,9 @@ then immediately broadcasts a `:lobby/state` to everyone in the room.
 ### What gets redacted (per recipient)
 
 - `:chosen-word` — `nil` unless you are the Mayor / Seer / a Wolf, or the game
-  has ended.
-- A player's `:role` — `nil` for others until end-game (Wolves see each other).
+  has reached a voting state (`:word-guessed`, `:out-of-time`, `:out-of-tokens`) or `:end-game`.
+- A player's `:role` — `nil` for others until end-game, except Wolves see each
+  other and mod-seated late Villagers have a public `:villager` role.
 - `:seer`, `:wolf-votes` — empty/`nil` until end-game. `:werewolves` is shown to Wolves during play and to everyone at end-game.
 - `:you` — a convenience block of your own private facts:
   `{:auth-id :role :is-mayor :can-moderate :knows-word}`.
@@ -61,6 +62,7 @@ The lobby snapshot also includes:
 - `:round-started-at-ms` / `:round-deadline-ms` — server-anchored timer data; clients count down from the deadline instead of resetting on every snapshot.
 - `:question-log` — answered and discarded questions in chronological order. Discard entries use `:answer :discard` and `:discarded-by :mayor|:self`.
 - `:vote-result` — end-game vote summary `{:mode :counts :leaders :selected :randomized?}`. Ties are resolved server-side by sampling uniformly among tied leaders.
+- Player `:public-role true` marks a role that is intentionally visible before final reveal, currently used for no-role spectators whom mods seat mid-game as public Villagers.
 
 ## Client → server commands
 

@@ -2,10 +2,10 @@
 	import type { Lobby } from '$lib/types';
 	import { seatedPlayers } from '$lib/game';
 	import Crown from '@lucide/svelte/icons/crown';
+	import { roleLabel } from '$lib/game';
 
-	// A compact, everyone-can-see roster for the in-game screens. Roles stay hidden
-	// (the snapshot already redacts them until end-game); we only show who is at the
-	// table, who the Mayor is, and who is offline.
+	// A compact roster for in-game screens. The snapshot redacts hidden roles, so
+	// any role present here is intentionally public (late Villager or end-game reveal).
 	let { lobby }: { lobby: Lobby } = $props();
 	const players = $derived(seatedPlayers(lobby));
 </script>
@@ -29,6 +29,11 @@
 						class="flex shrink-0 items-center gap-1 rounded-full bg-apple-50 px-1.5 py-0.5 text-[0.65rem] font-medium text-apple-600 dark:bg-apple-500/15 dark:text-apple-400"
 					>
 						<Crown class="size-3" /> Mayor
+					</span>
+				{/if}
+				{#if p.role}
+					<span class="shrink-0 rounded-full bg-forest/10 px-1.5 py-0.5 text-[0.65rem] font-medium text-forest dark:bg-forest/15">
+						{roleLabel[p.role]}
 					</span>
 				{/if}
 				{#if !p.online}<span class="shrink-0 text-[0.65rem] text-mist">offline</span>{/if}

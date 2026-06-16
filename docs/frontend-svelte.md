@@ -235,3 +235,8 @@ reconstruct history from pending questions or token counters.
 more robust than anchoring the countdown when the component receives a snapshot:
 the server sets the deadline once at word pick, and later broadcasts simply update
 the display without resetting the round.
+
+Public role badges are snapshot-driven. Components do not decide whether a role
+should be public; they simply render `player.role` when the redacted lobby view
+contains one. That means hidden dealt roles stay absent, while late mod-seated
+Villagers and end-game roles appear automatically.

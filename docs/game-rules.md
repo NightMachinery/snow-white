@@ -47,15 +47,18 @@ eligible; Villagers and Werewolves are eligible by default, Seers are not). The 
      - *“So close / Way off” cost a token* (default **on**) — when off, those are free.
      - *One question at a time* (default **off**) — when on, no new question may be
        queued while one is still unanswered.
-   - The pending queue is **LIFO**: the newest question is answered first. If a
-     player asks the exact target word (case-insensitive, ignoring trailing
-     punctuation), it is recorded immediately as **Correct** without spending a
-     token. A player may withdraw their own unanswered question for free; both
-     Mayor-discarded and self-withdrawn questions remain visible in the question
-     log.
+   - The pending queue is **FIFO**: first asked, first answered. If a player asks
+     the exact target word (case-insensitive, ignoring trailing punctuation), it
+     is recorded immediately as **Correct** without spending a token. A player
+     may withdraw their own unanswered question for free; both Mayor-discarded
+     and self-withdrawn questions remain visible in the question log.
+   - Players who join mid-round start as spectators. If a mod seats a no-role
+     spectator during the game, they join as a **public Villager** and everyone
+     sees that Villager badge.
    - The round ends when the word is guessed (**Correct**), the budget runs out, or
      the timer expires.
-4. **Voting**
+4. **Voting** — the target word is revealed to everyone as soon as voting
+   begins, but hidden roles stay secret until final resolution.
    - If the word **was guessed**: the **Wolves** secretly vote for who they think
      the **Seer** is.
    - If the word was **not guessed**: **everyone** votes for who they think a

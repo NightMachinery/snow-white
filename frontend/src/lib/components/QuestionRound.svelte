@@ -113,9 +113,9 @@
 		{#if lobby.questions.length > 0}
 			<div class="flex flex-col gap-1.5">
 				<h3 class="text-xs font-medium uppercase tracking-wide text-mist">
-					Waiting for the Mayor · newest first · {lobby.questions.length}
+					Waiting for the Mayor · first asked, first answered · {lobby.questions.length}
 				</h3>
-				{#each [...lobby.questions].reverse() as q, i (q['auth-id'] + i)}
+				{#each lobby.questions as q, i (q['auth-id'] + i)}
 					<div
 						class={[
 							'flex items-baseline justify-between gap-3 rounded-xl px-3 py-2 text-sm',

@@ -6,6 +6,7 @@
 	import UserMinus from '@lucide/svelte/icons/user-minus';
 	import UserPlus from '@lucide/svelte/icons/user-plus';
 	import Star from '@lucide/svelte/icons/star';
+	import { roleLabel } from '$lib/game';
 
 	let {
 		player,
@@ -54,8 +55,13 @@
 			<span class="truncate" dir="auto">{player['display-name']}</span>
 			{#if isYou}<span class="shrink-0 text-xs text-mist">(you)</span>{/if}
 		</span>
-		<span class="flex items-center gap-1.5 text-xs text-mist">
+		<span class="flex flex-wrap items-center gap-1.5 text-xs text-mist">
 			{#if player.mayor}<Crown class="size-3 text-apple-500" /> Mayor{/if}
+			{#if player.role}
+				<span class="rounded-full bg-forest/10 px-1.5 py-0.5 text-[0.65rem] font-medium text-forest dark:bg-forest/15">
+					{roleLabel[player.role]}
+				</span>
+			{/if}
 			{#if player['can-moderate']}<Shield class="size-3" />{/if}
 			{#if !player.online}<WifiOff class="size-3" /> offline{/if}
 		</span>
