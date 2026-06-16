@@ -47,10 +47,14 @@
         (assoc :players players)
         ;; mask the chosen word unless entitled
         (assoc :chosen-word (when show-word? (:chosen-word lobby)))
-        ;; seer/wolves identities only revealed at end-game
+        ;; seer identity is end-game only. Wolves know their pack during play;
+        ;; everyone sees wolves after the reveal.
         (assoc :seer (when reveal-secrets? (:seer lobby)))
-        (assoc :werewolves (if reveal-secrets? (:werewolves lobby) #{}))
-        ;; wolf votes are secret; never expose raw targets mid-game
+        (assoc :werewolves (if (or reveal-secrets?
+                                   (= :werewolf (get-in lobby [:players recipient :role])))
+                             (:werewolves lobby)
+                             #{}))
+        ;; wolf votes are secret until end-game.
         (assoc :wolf-votes (if reveal-secrets? (:wolf-votes lobby) []))
         ;; tell the recipient their own private facts explicitly for convenience
         (assoc :you {:auth-id recipient

@@ -47,34 +47,35 @@
     (when (seq pool)
       (rand-nth (vec pool)))))
 
+(defn vote-result
+  "Summarize a vote by selecting uniformly among tied top vote-getters.
+
+  Returns nil when there are no votes yet; otherwise returns counts, tied leaders,
+  the selected leader, and whether random tie resolution was needed. Keeping this
+  as data lets the client show the exact post-game resolution instead of
+  re-computing game logic."
+  [mode votes]
+  (let [counts (frequencies votes)]
+    (when (seq counts)
+      (let [top (apply max (vals counts))
+            leaders (->> counts (filter #(= top (val %))) (map key) vec)
+            selected (if (= 1 (count leaders)) (first leaders) (rand-nth leaders))]
+        {:mode mode
+         :counts counts
+         :leaders leaders
+         :selected selected
+         :randomized? (< 1 (count leaders))}))))
+
 (defn resolve-winner
   "Decide the winning team at the end of a game.
 
-  Arguments are plain data so this is trivially testable:
-  - `guessed?`      did the village guess the word?
-  - `seer-auth`     auth-id of the seer
-  - `werewolf-auths` set of werewolf auth-ids
-  - `wolf-votes`    seq of auth-ids the wolves voted for (only when guessed?)
-  - `village-votes` seq of auth-ids everyone voted for (only when not guessed?)
-
-  Returns :village or :wolves.
-
-  Rules (faithful to the original):
-  - If the word WAS guessed: wolves try to identify the seer. If any wolf vote
-    targets the seer, wolves win; otherwise village wins.
-  - If the word was NOT guessed: everyone votes for a suspected wolf. Take the
-    plurality (top vote count). If there is a unique top-voted player and they
-    are a wolf, village wins; otherwise wolves win. (A tie at the top, or a
-    non-wolf winner, means the village failed.)"
+  Tied vote leaders are resolved by a uniform random sample among the tied top
+  targets. The sampled target is then used exactly as a unique plurality target
+  would be used."
   [{:keys [guessed? seer-auth werewolf-auths wolf-votes village-votes]}]
   (let [werewolf-auths (set werewolf-auths)]
     (if guessed?
-      (if (some #(= % seer-auth) wolf-votes) :wolves :village)
-      (let [counts (frequencies village-votes)
-            top    (when (seq counts) (apply max (vals counts)))
-            leaders (when top (->> counts (filter #(= top (val %))) (map key)))]
-        (if (and leaders
-                 (= 1 (count leaders))
-                 (werewolf-auths (first leaders)))
-          :village
-          :wolves)))))
+      (let [r (vote-result :wolf wolf-votes)]
+        (if (= (:selected r) seer-auth) :wolves :village))
+      (let [r (vote-result :village village-votes)]
+        (if (and r (werewolf-auths (:selected r))) :village :wolves)))))

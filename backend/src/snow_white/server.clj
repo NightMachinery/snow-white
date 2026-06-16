@@ -92,22 +92,29 @@
           :settings/pick-count  (reg/update-lobby! lobby mod-gate me game/set-pick-count (:pick-count msg))
           :settings/eligibility (reg/update-lobby! lobby mod-gate me game/set-mayor-eligibility (:roles msg))
           :settings/budget      (reg/update-lobby! lobby mod-gate me game/set-budget (:budget msg))
+          :settings/discard-budget (reg/update-lobby! lobby mod-gate me game/set-budget {:discard-tokens (:discard-tokens msg)})
           :settings/rules       (reg/update-lobby! lobby mod-gate me game/set-rules (:rules msg))
           :settings/wordpacks   (reg/update-lobby! lobby mod-gate me game/set-wordpacks (:wordpacks msg))
 
           ;; --- mod player management (mod-gated) ---
           :mod/seat     (reg/update-lobby! lobby mod-gate me game/mod-seat (:target msg))
           :mod/unseat   (reg/update-lobby! lobby mod-gate me game/mod-unseat (:target msg))
+          :mod/mayor    (reg/update-lobby! lobby mod-gate me game/mod-set-preferred-mayor (:target msg))
+
+          ;; --- player identity ---
+          :player/rename (reg/update-lobby! lobby game/rename-player me (:name msg))
 
           ;; --- game flow ---
           :game/start    (reg/update-lobby! lobby mod-gate me game/start-game)
           :game/pick     (reg/update-lobby! lobby game/mayor-pick me (:word msg))
           :game/ask      (reg/update-lobby! lobby game/ask-question me (:text msg))
           :game/edit     (reg/update-lobby! lobby game/edit-question me (:text msg))
+          :game/discard-own (reg/update-lobby! lobby game/discard-own-question me)
           :game/answer   (reg/update-lobby! lobby game/answer-question me (:answer msg))
           :game/timeout  (reg/update-lobby! lobby mod-gate me game/timeout)
           :game/vote-village (reg/update-lobby! lobby game/village-vote me (:target msg))
           :game/vote-wolf    (reg/update-lobby! lobby game/wolf-vote me (:target msg))
+          :game/finish-vote  (reg/update-lobby! lobby mod-gate me game/finish-vote)
           :game/finalize (reg/update-lobby! lobby game/finalize)
           :game/reset    (reg/update-lobby! lobby
                                             (fn [l] (if (or (game/can-moderate? l me)

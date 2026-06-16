@@ -31,6 +31,7 @@
 (def max-inactive-players 200)
 (def start-tokens 36)        ; shared yes/no budget
 (def start-maybe-tokens 12)  ; shared "maybe" budget
+(def start-discard-tokens 5) ; shared Mayor discard budget
 
 (def seat-ids
   "Stable seat keywords :seat-1 .. :seat-20."
@@ -87,12 +88,13 @@
    :settings         {:minutes 1 :seconds 0}
    :available-wordpacks (words/available-wordpacks)
    :selected-wordpacks (words/normalize-selection [words/default-wordpack-id])
-   :mayor-eligibility {:villager true :seer false :werewolf false}
+   :mayor-eligibility {:villager true :seer false :werewolf true}
    :timer-minutes    1
    :pick-count       2
    ;; --- configurable rules / economy (mod-settable) ---
    :max-tokens       start-tokens       ; configured yes/no budget size
    :max-maybe-tokens start-maybe-tokens ; configured maybe budget size
+   :max-discard-tokens start-discard-tokens
    :shared-maybe-pool true              ; maybes draw from the main pool
    :soft-costs       true               ; so-close / way-off each cost 1 token
    :one-at-a-time    false              ; block new questions while one is pending
@@ -100,19 +102,25 @@
    :game-state       :lobby
    ;; round state
    :mayor            nil               ; auth-id
+   :preferred-mayor nil
    :seer             nil               ; auth-id
    :werewolves       #{}              ; set of auth-ids
    :words            []                ; candidate words shown to Mayor
    :chosen-word      nil
-   :questions        []                ; pending questions (FIFO)
-   :answered         []                ; [{:q ... :answer ...}]
+   :questions        []                ; pending questions (newest answered first)
+   :answered         []                ; answered/discarded history entries
+   :question-log     []
    :so-close         nil
    :way-off          nil
    :correct          nil
    :tokens           start-tokens
    :maybe-tokens     start-maybe-tokens
+   :discard-tokens   start-discard-tokens
+   :round-started-at-ms nil
+   :round-deadline-ms nil
    :village-votes    []                ; auth-ids voted for (find the wolf)
    :wolf-votes       []                ; auth-ids voted for (find the seer)
+   :vote-result      nil
    :winner           nil})
 
 ;; ---------------------------------------------------------------------------
@@ -165,6 +173,24 @@
            (update-in [:used-numbers norm] (fnil conj #{}) n)
            (assoc-in [:name-assignments auth-id] a))
        a])))
+
+(defn- release-name
+  "Free an auth-id's current room-scoped display number before a rename."
+  [lobby auth-id]
+  (if-let [{:keys [base-name display-number]} (get-in lobby [:name-assignments auth-id])]
+    (-> lobby
+        (update-in [:used-numbers base-name] disj display-number)
+        (update :used-numbers (fn [m] (if (empty? (get m base-name)) (dissoc m base-name) m)))
+        (update :name-assignments dissoc auth-id))
+    lobby))
+
+(defn rename-player
+  "Rename yourself within a lobby, preserving identity, seat, role, and mod data."
+  [lobby auth-id base-name]
+  (if (get-in lobby [:players auth-id])
+    (let [[lobby a] (assign-name (release-name lobby auth-id) auth-id base-name)]
+      (update-in lobby [:players auth-id] merge a))
+    lobby))
 
 (defn- ensure-migration
   "Make sure `auth-id` has a migration token (idempotent)."
@@ -312,34 +338,51 @@
 (defn set-pick-count [lobby n]
   (assoc lobby :pick-count (max 1 (long n))))
 
-(defn set-mayor-eligibility [lobby {:keys [villager seer werewolf]}]
-  (let [e {:villager (boolean villager)
-           :seer (boolean seer)
-           :werewolf (boolean werewolf)}
+(defn- get-either
+  "Read keyword or string keys from nested Transit maps. The JS client sends
+  top-level command keys as keywords, but nested object keys may arrive as
+  strings depending on the Transit writer."
+  [m k]
+  (or (get m k) (get m (name k))))
+
+(defn- contains-either?
+  [m k]
+  (or (contains? m k) (contains? m (name k))))
+
+(defn set-mayor-eligibility [lobby roles]
+  (let [e {:villager (boolean (get-either roles :villager))
+           :seer (boolean (get-either roles :seer))
+           :werewolf (boolean (get-either roles :werewolf))}
         e (if (some true? (vals e)) e (assoc e :villager true))]
     (assoc lobby :mayor-eligibility e)))
 
 (defn set-budget
   "Set the configured token-budget sizes. Clamped to sane minimums. Applies to
-  the next round; if set during the question round, also tops the live counters
-  so the change takes effect immediately without exceeding the new maxes."
-  [lobby {:keys [tokens maybe-tokens]}]
-  (let [mt  (when tokens (max 1 (long tokens)))
+  the next round; if set during the question round, also clamps live counters so
+  the change takes effect immediately without exceeding the new maxes."
+  [lobby budget]
+  (let [tokens (get-either budget :tokens)
+        maybe-tokens (get-either budget :maybe-tokens)
+        discard-tokens (get-either budget :discard-tokens)
+        mt  (when tokens (max 1 (long tokens)))
         mmt (when maybe-tokens (max 0 (long maybe-tokens)))
+        mdt (when discard-tokens (max 0 (long discard-tokens)))
         lobby (cond-> lobby
                 mt  (assoc :max-tokens mt)
-                mmt (assoc :max-maybe-tokens mmt))]
+                mmt (assoc :max-maybe-tokens mmt)
+                mdt (assoc :max-discard-tokens mdt))]
     (if (= (:game-state lobby) :question-round)
       (cond-> lobby
         mt  (update :tokens min mt)
-        mmt (update :maybe-tokens min mmt))
+        mmt (update :maybe-tokens min mmt)
+        mdt (update :discard-tokens min mdt))
       lobby)))
 
 (defn set-rules
   "Toggle the configurable economy/flow rules. Only keys present in `m` change."
   [lobby m]
   (reduce (fn [l k]
-            (if (contains? m k) (assoc l k (boolean (get m k))) l))
+            (if (contains-either? m k) (assoc l k (boolean (get-either m k))) l))
           lobby
           [:shared-maybe-pool :soft-costs :one-at-a-time :lock-seating]))
 
@@ -383,6 +426,34 @@
       (seat-player lobby target-auth)
       lobby)))
 
+(defn mod-set-preferred-mayor
+  "Remember a mod's preferred Mayor for the next deal. The preference is honored
+  only if that player is active when the game starts."
+  [lobby target-auth]
+  (assoc lobby :preferred-mayor target-auth))
+
+(defn- eligible-role?
+  [eligibility role]
+  (boolean (get eligibility role false)))
+
+(defn- preferred-active?
+  [lobby auth-id]
+  (seated? (get-in lobby [:players auth-id])))
+
+(defn- deal-roles-for-mayor
+  "Deal roles, retrying briefly when a preferred active Mayor needs an eligible
+  role. Falls back to the last deal if randomness cannot satisfy the preference."
+  [active-auths eligibility preferred]
+  (let [eligible? #(eligible-role? eligibility %)]
+    (loop [tries 200
+           last-deal nil]
+      (let [roles-by-auth (roles/assign-roles active-auths)
+            role (get roles-by-auth preferred)]
+        (cond
+          (or (nil? preferred) (eligible? role)) roles-by-auth
+          (pos? tries) (recur (dec tries) roles-by-auth)
+          :else last-deal)))))
+
 ;; ---------------------------------------------------------------------------
 ;; Game flow
 ;; ---------------------------------------------------------------------------
@@ -395,8 +466,11 @@
     (if (< (count seated-auths) 4)
       lobby
       (let [selected-wordpacks (words/normalize-selection (:selected-wordpacks lobby))
-            roles-by-auth (roles/assign-roles seated-auths)
-            mayor (roles/choose-mayor roles-by-auth (:mayor-eligibility lobby))
+            preferred (when (preferred-active? lobby (:preferred-mayor lobby)) (:preferred-mayor lobby))
+            roles-by-auth (deal-roles-for-mayor seated-auths (:mayor-eligibility lobby) preferred)
+            mayor (if (and preferred (eligible-role? (:mayor-eligibility lobby) (roles-by-auth preferred)))
+                    preferred
+                    (roles/choose-mayor roles-by-auth (:mayor-eligibility lobby)))
             seer  (some (fn [[a r]] (when (= r :seer) a)) roles-by-auth)
             wolves (->> roles-by-auth (filter #(= :werewolf (val %))) (map key) set)
             lobby (reduce (fn [l a]
@@ -410,19 +484,47 @@
                :seer seer
                :werewolves wolves
                :selected-wordpacks selected-wordpacks
-               ;; (re)load the token budget from the configured maxes
+               ;; (re)load budgets from configured maxes
                :tokens (:max-tokens lobby start-tokens)
                :maybe-tokens (:max-maybe-tokens lobby start-maybe-tokens)
+               :discard-tokens (:max-discard-tokens lobby start-discard-tokens)
+               :question-log []
+               :vote-result nil
+               :round-started-at-ms nil
+               :round-deadline-ms nil
                :words (words/random-words (:pick-count lobby) selected-wordpacks))))))
 
 (defn mayor-pick
   "Mayor commits to the secret word and the question round begins."
-  [lobby auth-id word]
-  (if (and (= (:game-state lobby) :mayor-pick)
-           (= auth-id (:mayor lobby))
-           (some #{word} (:words lobby)))
-    (assoc lobby :chosen-word word :game-state :question-round)
-    lobby))
+  ([lobby auth-id word]
+   (mayor-pick lobby auth-id word (System/currentTimeMillis)))
+  ([lobby auth-id word now-ms]
+   (if (and (= (:game-state lobby) :mayor-pick)
+            (= auth-id (:mayor lobby))
+            (some #{word} (:words lobby)))
+     (assoc lobby
+            :chosen-word word
+            :game-state :question-round
+            :round-started-at-ms now-ms
+            :round-deadline-ms (+ now-ms (* (:timer-minutes lobby) 60 1000)))
+     lobby)))
+
+(defn- normalize-guess [s]
+  (-> (str (or s ""))
+      str/trim
+      (str/replace #"\s+" " ")
+      (str/replace #"[?!\.]+$" "")
+      str/lower-case))
+
+(defn- exact-match? [lobby text]
+  (and (seq (:chosen-word lobby))
+       (= (normalize-guess text) (normalize-guess (:chosen-word lobby)))))
+
+(defn- log-question [lobby q answer extra]
+  (let [entry (merge q {:answer answer} extra)]
+    (-> lobby
+        (update :answered conj entry)
+        (update :question-log conj entry))))
 
 (defn- has-pending?
   "Does `auth-id` already have an unanswered question in the queue?"
@@ -432,18 +534,25 @@
 (defn ask-question
   "Enqueue a yes/no question from a player during the question round.
   Rules: a player may have at most ONE pending (unanswered) question at a time;
-  if `:one-at-a-time` is on, no new question may be added while ANY is pending."
+  if `:one-at-a-time` is on, no new question may be added while ANY is pending.
+  A text that exactly matches the chosen word auto-records as Correct."
   [lobby auth-id text]
-  (let [text (str/trim (str text))]
+  (let [text (str/trim (str text))
+        q {:auth-id auth-id
+           :name (get-in lobby [:players auth-id :display-name])
+           :text text}]
     (if (and (= (:game-state lobby) :question-round)
              (seq text)
-             (not= auth-id (:mayor lobby))           ; the Mayor answers, doesn't ask
-             (not (has-pending? lobby auth-id))       ; one pending per player
+             (not= auth-id (:mayor lobby))
+             (not (has-pending? lobby auth-id))
              (not (and (:one-at-a-time lobby)
-                       (seq (:questions lobby)))))     ; optional global gate
-      (update lobby :questions conj {:auth-id auth-id
-                                     :name (get-in lobby [:players auth-id :display-name])
-                                     :text text})
+                       (seq (:questions lobby)))))
+      (if (exact-match? lobby text)
+        (-> lobby
+            (update-in [:players auth-id :tokens :correct] (fnil conj []) q)
+            (log-question q :correct {:auto? true})
+            (assoc :correct q :game-state :word-guessed))
+        (update lobby :questions conj q))
       lobby)))
 
 (defn edit-question
@@ -475,11 +584,17 @@
       (:so-close :way-off) (if soft? (main lobby) lobby)
       lobby)))
 
+(defn- newest-question [lobby]
+  (last (:questions lobby)))
+
+(defn- drop-newest-question [lobby]
+  (update lobby :questions pop))
+
 (defn answer-question
-  "Mayor answers the head-of-queue question with one of `answer-types`.
+  "Mayor answers the newest queued question with one of `answer-types`.
   Spends the configurable token economy and advances state as needed."
   [lobby auth-id answer]
-  (let [q (first (:questions lobby))]
+  (let [q (newest-question lobby)]
     (cond
       (or (not= (:game-state lobby) :question-round)
           (not= auth-id (:mayor lobby))
@@ -488,14 +603,19 @@
       lobby
 
       (= answer :discard)
-      (update lobby :questions subvec-rest)
+      (if (pos? (:discard-tokens lobby 0))
+        (-> lobby
+            (update :discard-tokens dec)
+            (log-question q :discard {:discarded-by :mayor})
+            drop-newest-question)
+        lobby)
 
       :else
       (let [asker (:auth-id q)
             lobby (-> lobby
                       (update-in [:players asker :tokens answer] (fnil conj []) q)
-                      (update :answered conj (assoc q :answer answer))
-                      (update :questions subvec-rest))
+                      (log-question q answer {})
+                      drop-newest-question)
             lobby (case answer
                     :correct  (assoc lobby :correct q :game-state :word-guessed)
                     :so-close (assoc lobby :so-close q)
@@ -507,12 +627,29 @@
           (assoc lobby :game-state :out-of-tokens)
           lobby)))))
 
+(defn discard-own-question
+  "Let a player withdraw their own unanswered question for free, keeping it in the log."
+  [lobby auth-id]
+  (if (= (:game-state lobby) :question-round)
+    (let [q (some #(when (= (:auth-id %) auth-id) %) (:questions lobby))]
+      (if q
+        (-> lobby
+            (update :questions (fn [qs] (vec (remove #(= (:auth-id %) auth-id) qs))))
+            (log-question q :discard {:discarded-by :self}))
+        lobby))
+    lobby))
+
 (defn timeout
   "Timer expired during the question round."
   [lobby]
   (if (= (:game-state lobby) :question-round)
     (assoc lobby :game-state :out-of-time)
     lobby))
+
+(defn- store-vote-result [lobby mode]
+  (case mode
+    :village (assoc lobby :vote-result (roles/vote-result :village (:village-votes lobby)))
+    :wolf    (assoc lobby :vote-result (roles/vote-result :wolf (:wolf-votes lobby)))))
 
 (defn village-vote
   "A seated player votes for a suspected wolf (used when the word was NOT
@@ -524,7 +661,7 @@
           ;; everyone seated votes in the village round, including offline players
           expected (seated-count lobby)]
       (if (>= (count (:village-votes lobby)) expected)
-        (assoc lobby :game-state :end-game)
+        (-> lobby (store-vote-result :village) (assoc :game-state :end-game))
         lobby))
     lobby))
 
@@ -537,21 +674,40 @@
            (seated? (get-in lobby [:players voter-auth])))
     (let [lobby (update lobby :wolf-votes conj target-auth)]
       (if (>= (count (:wolf-votes lobby)) (count (:werewolves lobby)))
-        (assoc lobby :game-state :end-game)
+        (-> lobby (store-vote-result :wolf) (assoc :game-state :end-game))
         lobby))
     lobby))
+
+(defn finish-vote
+  "Moderator shortcut: end the current voting stage using currently cast votes."
+  ([lobby]
+   (cond
+     (#{:out-of-time :out-of-tokens} (:game-state lobby)) (finish-vote lobby :village)
+     (= :word-guessed (:game-state lobby)) (finish-vote lobby :wolf)
+     :else lobby))
+  ([lobby mode]
+   (case mode
+     :village (if (#{:out-of-time :out-of-tokens} (:game-state lobby))
+                (-> lobby (store-vote-result :village) (assoc :game-state :end-game))
+                lobby)
+     :wolf (if (= :word-guessed (:game-state lobby))
+             (-> lobby (store-vote-result :wolf) (assoc :game-state :end-game))
+             lobby)
+     lobby)))
 
 (defn finalize
   "Compute and store the winning team. Idempotent."
   [lobby]
   (if (and (= (:game-state lobby) :end-game) (nil? (:winner lobby)))
-    (assoc lobby :winner
-           (roles/resolve-winner
-            {:guessed? (boolean (:correct lobby))
-             :seer-auth (:seer lobby)
-             :werewolf-auths (:werewolves lobby)
-             :wolf-votes (:wolf-votes lobby)
-             :village-votes (:village-votes lobby)}))
+    (let [lobby (cond
+                  (and (:correct lobby) (nil? (:vote-result lobby))) (store-vote-result lobby :wolf)
+                  (nil? (:vote-result lobby)) (store-vote-result lobby :village)
+                  :else lobby)
+          selected (get-in lobby [:vote-result :selected])
+          winner (if (:correct lobby)
+                   (if (= selected (:seer lobby)) :wolves :village)
+                   (if ((set (:werewolves lobby)) selected) :village :wolves))]
+      (assoc lobby :winner winner))
     lobby))
 
 (defn reset-game
@@ -570,9 +726,11 @@
            :game-state :lobby
            :mayor nil :seer nil :werewolves #{}
            :words [] :chosen-word nil
-           :questions [] :answered []
+           :questions [] :answered [] :question-log []
            :so-close nil :way-off nil :correct nil
            :tokens (:max-tokens lobby start-tokens)
            :maybe-tokens (:max-maybe-tokens lobby start-maybe-tokens)
-           :village-votes [] :wolf-votes [] :winner nil
+           :discard-tokens (:max-discard-tokens lobby start-discard-tokens)
+           :round-started-at-ms nil :round-deadline-ms nil
+           :village-votes [] :wolf-votes [] :vote-result nil :winner nil
            :settings {:minutes (:timer-minutes lobby) :seconds 0})))

@@ -176,6 +176,18 @@
               g/start-game)]
     (is (= 5 (:tokens l)) "start-game loads the configured budget")))
 
+
+(deftest nested-transit-string-keys-work-for-settings
+  (let [l (-> (g/new-lobby :p0 "t")
+              (g/set-mayor-eligibility {"villager" false "seer" false "werewolf" true})
+              (g/set-budget {"tokens" 7 "maybe-tokens" 2 "discard-tokens" 4})
+              (g/set-rules {"one-at-a-time" true}))]
+    (is (= {:villager false :seer false :werewolf true} (:mayor-eligibility l)))
+    (is (= 7 (:max-tokens l)))
+    (is (= 2 (:max-maybe-tokens l)))
+    (is (= 4 (:max-discard-tokens l)))
+    (is (true? (:one-at-a-time l)))))
+
 ;; --- mod player management ---------------------------------------------------
 
 (deftest mod-unseat-and-seat
@@ -250,3 +262,108 @@
                   g/start-game
                   g/reset-game)]
         (is (= ["other"] (:selected-wordpacks l)))))))
+
+;; --- gameplay polish plan regressions ---------------------------------------
+
+(deftest mayor-defaults-include-wolves-not-seer
+  (is (= {:villager true :seer false :werewolf true}
+         (:mayor-eligibility (g/new-lobby :owner "t")))))
+
+(deftest rename-self-preserves-seat-and-resolves-collisions
+  (let [l (-> (g/new-lobby :a "t")
+              (g/join :a "Sam")
+              (g/join :b "Pat")
+              (g/rename-player :b "Sam"))]
+    (is (= "Sam" (get-in l [:players :a :display-name])))
+    (is (= "Sam 2" (get-in l [:players :b :display-name])))
+    (is (some? (get-in l [:players :b :seat])))))
+
+(deftest preferred-mayor-is-used-when-active-and-eligible
+  (with-redefs [snow-white.roles/assign-roles (fn [_] {:p0 :seer :p1 :villager :p2 :villager :p3 :werewolf :p4 :villager})
+                snow-white.words/random-words (fn ([_] ["apple" "pear"]) ([_ _] ["apple" "pear"]))]
+    (let [l (-> (lobby-with-players 5)
+                (g/set-mayor-eligibility {:villager true :seer false :werewolf true})
+                (g/mod-set-preferred-mayor :p3)
+                g/start-game)]
+      (is (= :p3 (:mayor l)))
+      (is (= :werewolf (get-in l [:players :p3 :role]))))))
+
+(deftest preferred-mayor-falls-back-when-not-active
+  (let [l (-> (lobby-with-players 5)
+              (g/mod-set-preferred-mayor :ghost)
+              g/start-game)]
+    (is (some? (:mayor l)))
+    (is (not= :ghost (:mayor l)))))
+
+(deftest question-queue-is-lifo
+  (let [[l mayor askers] (into-question-round)
+        l (-> l
+              (g/ask-question (first askers) "Older?")
+              (g/ask-question (second askers) "Newer?")
+              (g/answer-question mayor :yes))]
+    (is (= "Newer?" (:text (first (:answered l)))))
+    (is (= ["Older?"] (mapv :text (:questions l))))))
+
+(deftest mayor-discard-spends-discard-budget-and-logs-question
+  (let [[l mayor askers] (into-question-round)
+        l (-> l
+              (assoc :discard-tokens 1)
+              (g/ask-question (first askers) "Noise?")
+              (g/answer-question mayor :discard))]
+    (is (= 0 (:discard-tokens l)))
+    (is (empty? (:questions l)))
+    (is (= :discard (:answer (last (:question-log l)))))
+    (is (= :mayor (:discarded-by (last (:question-log l)))))))
+
+(deftest mayor-discard-is-blocked-when-budget-empty
+  (let [[l mayor askers] (into-question-round)
+        l (-> l
+              (assoc :discard-tokens 0)
+              (g/ask-question (first askers) "Keep me"))
+        l2 (g/answer-question l mayor :discard)]
+    (is (= (:questions l) (:questions l2)))
+    (is (empty? (:question-log l2)))))
+
+(deftest own-discard-is-free-and-logged
+  (let [[l _ askers] (into-question-round)
+        asker (first askers)
+        l (-> l
+              (assoc :discard-tokens 0)
+              (g/ask-question asker "Never mind")
+              (g/discard-own-question asker))]
+    (is (empty? (:questions l)))
+    (is (= 0 (:discard-tokens l)))
+    (is (= :discard (:answer (last (:question-log l)))))
+    (is (= :self (:discarded-by (last (:question-log l)))))))
+
+(deftest exact-match-question-auto-corrects
+  (let [[l _ askers] (into-question-round)
+        l (assoc l :chosen-word "Snow White")
+        l (g/ask-question l (first askers) " snow white? ")]
+    (is (= :word-guessed (:game-state l)))
+    (is (= :correct (:answer (last (:question-log l)))))
+    (is (= g/start-tokens (:tokens l)))
+    (is (empty? (:questions l)))))
+
+(deftest mayor-pick-sets-stable-round-deadline
+  (let [l (g/start-game (lobby-with-players 5))
+        mayor (:mayor l)
+        l (g/mayor-pick l mayor (first (:words l)) 1000)
+        deadline (:round-deadline-ms l)
+        asker (first (remove #{mayor} (keys (:players l))))
+        l2 (-> l (g/ask-question asker "A?") (g/answer-question mayor :yes))]
+    (is (= 61000 deadline))
+    (is (= deadline (:round-deadline-ms l2)))))
+
+(deftest finish-voting-uses-current-votes-and-records-random-tie-result
+  (with-redefs [rand-nth first]
+    (let [l (-> (lobby-with-players 5)
+                g/start-game
+                (assoc :game-state :out-of-time
+                       :werewolves #{:p1}
+                       :village-votes [:p1 :p2]))
+          l (g/finish-vote l :village)]
+      (is (= :end-game (:game-state l)))
+      (is (= :p1 (get-in l [:vote-result :selected])))
+      (is (= #{:p1 :p2} (set (get-in l [:vote-result :leaders]))))
+      (is (true? (get-in l [:vote-result :randomized?]))))))

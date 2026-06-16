@@ -25,7 +25,17 @@
   (testing "guessed: wolves win only by hitting the seer"
     (is (= :wolves  (roles/resolve-winner {:guessed? true :seer-auth :s :werewolf-auths #{:w} :wolf-votes [:s]})))
     (is (= :village (roles/resolve-winner {:guessed? true :seer-auth :s :werewolf-auths #{:w} :wolf-votes [:x]}))))
-  (testing "not guessed: village wins only with a unique top wolf"
+  (testing "not guessed: village wins when the resolved vote target is a wolf"
     (is (= :village (roles/resolve-winner {:guessed? false :werewolf-auths #{:w} :village-votes [:w :w :a]})))
-    (is (= :wolves  (roles/resolve-winner {:guessed? false :werewolf-auths #{:w} :village-votes [:w :a]})))   ; tie
+    (with-redefs [rand-nth first]
+      (is (= :village (roles/resolve-winner {:guessed? false :werewolf-auths #{:w} :village-votes [:w :a]}))))   ; tie sampled to wolf
     (is (= :wolves  (roles/resolve-winner {:guessed? false :werewolf-auths #{:w} :village-votes [:a :a :w]}))))) ; non-wolf top
+
+
+(deftest resolve-winner-samples-tied-wolf-votes
+  (with-redefs [rand-nth first]
+    (is (= :wolves
+           (roles/resolve-winner {:guessed? true :seer-auth :s :werewolf-auths #{:w1 :w2} :wolf-votes [:s :x]}))))
+  (with-redefs [rand-nth second]
+    (is (= :village
+           (roles/resolve-winner {:guessed? true :seer-auth :s :werewolf-auths #{:w1 :w2} :wolf-votes [:s :x]})))))
