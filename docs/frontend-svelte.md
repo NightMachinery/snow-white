@@ -223,3 +223,15 @@ directly with no renaming layer. When the protocol changes, update `types.ts` an
 
 For deeper standalone drills on runes and reactivity pitfalls, see
 [`../learn/svelte/`](../learn/svelte).
+
+## Shared question log and server-anchored timer
+
+`QuestionLog.svelte` renders the server's `lobby.question-log` anywhere the game
+needs the shared history: question round, vote screens, and end-game. Because the
+backend records both answered and discarded questions, the component does not
+reconstruct history from pending questions or token counters.
+
+`Timer.svelte` now derives remaining time from `lobby.round-deadline-ms`. This is
+more robust than anchoring the countdown when the component receives a snapshot:
+the server sets the deadline once at word pick, and later broadcasts simply update
+the display without resetting the round.

@@ -45,12 +45,22 @@ then immediately broadcasts a `:lobby/state` to everyone in the room.
 - `:chosen-word` — `nil` unless you are the Mayor / Seer / a Wolf, or the game
   has ended.
 - A player's `:role` — `nil` for others until end-game (Wolves see each other).
-- `:seer`, `:werewolves`, `:wolf-votes` — empty/`nil` until end-game.
+- `:seer`, `:wolf-votes` — empty/`nil` until end-game. `:werewolves` is shown to Wolves during play and to everyone at end-game.
 - `:you` — a convenience block of your own private facts:
   `{:auth-id :role :is-mayor :can-moderate :knows-word}`.
 - `:available-wordpacks` and `:selected-wordpacks` are public room settings.
   Wordpack metadata contains `:id`, `:name`, and `:word-count`, never the hidden
   word list itself.
+
+### New gameplay fields
+
+The lobby snapshot also includes:
+
+- `:preferred-mayor` — auth-id a mod picked as preferred next Mayor, or `nil`.
+- `:max-discard-tokens` / `:discard-tokens` — configured and live Mayor discard budget.
+- `:round-started-at-ms` / `:round-deadline-ms` — server-anchored timer data; clients count down from the deadline instead of resetting on every snapshot.
+- `:question-log` — answered and discarded questions in chronological order. Discard entries use `:answer :discard` and `:discarded-by :mayor|:self`.
+- `:vote-result` — end-game vote summary `{:mode :counts :leaders :selected :randomized?}`. Ties are resolved server-side by sampling uniformly among tied leaders.
 
 ## Client → server commands
 
@@ -68,18 +78,22 @@ remain strings; enum-like values such as `:type` and `:answer` are keywords.
 | `:settings/timer` | `:minutes` | (mod) Set round length. |
 | `:settings/pick-count` | `:pick-count` | (mod) How many candidate words. |
 | `:settings/eligibility` | `:roles {…}` | (mod) Which roles can be Mayor. |
-| `:settings/budget` | `:budget {:tokens? :maybe-tokens?}` | (mod) Set the token-budget sizes. |
+| `:settings/budget` | `:budget {:tokens? :maybe-tokens? :discard-tokens?}` | (mod) Set answer, maybe, and discard budget sizes. |
 | `:settings/rules` | `:rules {…}` | (mod) Toggle `:shared-maybe-pool` `:soft-costs` `:one-at-a-time` `:lock-seating`. |
 | `:settings/wordpacks` | `:wordpacks [<id> …]` | (mod, lobby only) Select one or more wordpacks; the next game draws from their union. |
 | `:mod/unseat` | `:target` | (mod) Bench a player, freeing their seat and removing them from start/vote participation. |
 | `:mod/seat` | `:target` | (mod) Seat a benched player/spectator. |
+| `:mod/mayor` | `:target` | (mod) Prefer this active player as next Mayor; roles are dealt so the Mayor receives an eligible role when possible. |
+| `:player/rename` | `:name` | Rename yourself in the room, preserving identity and seat. |
 | `:game/start` | — | (mod) Deal roles, pick Mayor, draw words. |
 | `:game/pick` | `:word` | (Mayor) Commit the secret word. |
 | `:game/ask` | `:text` | Ask a yes/no question (one pending per player; blocked if `:one-at-a-time` and a question is queued). |
 | `:game/edit` | `:text` | Revise the text of *your own* pending question. |
+| `:game/discard-own` | — | Withdraw your own unanswered pending question for free; it remains in the question log. |
 | `:game/answer` | `:answer` | (Mayor) `:yes :no :maybe :so-close :way-off :correct :discard`. |
 | `:game/vote-village` | `:target` | Vote for a suspected Wolf (word not guessed). |
 | `:game/vote-wolf` | `:target` | (Wolf) Vote for the suspected Seer (word guessed). |
+| `:game/finish-vote` | — | (mod) End the current vote stage with the votes already cast. |
 | `:game/timeout` | — | (mod) Timer expired. |
 | `:game/reset` | — | (mod or Mayor) Back to the lobby. |
 

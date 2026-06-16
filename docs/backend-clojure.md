@@ -244,3 +244,24 @@ The mechanism lives in `registry.clj` and is deliberately tiny:
 
 **Next:** [`protocol.md`](protocol.md) for the exact message contract, then
 [`frontend-svelte.md`](frontend-svelte.md) for the other side of the socket.
+
+### Gameplay polish notes: history, timers, and random tiebreaks
+
+Recent rule changes keep three pieces of state as explicit lobby data rather than
+asking the Svelte client to infer them:
+
+- `:question-log` is an append-only, chronological history of answered questions
+  and discards. The old per-player token buckets are still useful for role reads,
+  but the log is the replayable story shown during voting and at end-game.
+- `:round-started-at-ms` and `:round-deadline-ms` are set exactly once when the
+  Mayor picks the word. Every later snapshot reuses the same deadline, so a UI
+  re-render or Mayor answer cannot accidentally restart the timer.
+- `:vote-result` stores the vote counts, tied leaders, selected target, and
+  whether a random tiebreak happened. This is important because random choices
+  should happen once on the server; clients only display the recorded result.
+
+Preferred Mayor selection is handled during `game/start-game` with rejection
+sampling: if a mod picked an active player, the backend retries the random role
+deal until that player has a role allowed by `:mayor-eligibility` (for example,
+Villager or Werewolf by default). If the preferred player is not active, normal
+Mayor selection is used.

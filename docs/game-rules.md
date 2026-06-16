@@ -17,7 +17,7 @@ Everyone gets a hidden role when the game starts:
 Teams: Villagers + Seer = **Village**. Werewolves = **Wolves**.
 
 One player is also designated the **Mayor** (configurable which roles are
-eligible; villager-only by default). The Mayor answers the questions.
+eligible; Villagers and Werewolves are eligible by default, Seers are not). The Mayor answers the questions.
 
 ## Flow
 
@@ -39,13 +39,20 @@ eligible; villager-only by default). The Mayor answers the questions.
      the pending queue and a live roster of who's at the table.
    - **Token economy (configurable by mods).** A shared **answer budget** (default
      **36**) limits how many questions get answered. By default **Yes / No / Maybe /
-     So close / Way off** each spend **1** token; **Correct** ends the round and
-     **Discard** is free. Mods can change the budget size and toggle:
+     So close / Way off** each spend **1** token; **Correct** ends the round. The
+     Mayor also has a separate **discard budget** (default **5**) for rejecting
+     noisy questions. Mods can change the budget sizes and toggle:
      - *Maybes share the main budget* (default **on**) — when off, Maybe draws from a
        separate maybe pool (default **12**).
      - *“So close / Way off” cost a token* (default **on**) — when off, those are free.
      - *One question at a time* (default **off**) — when on, no new question may be
        queued while one is still unanswered.
+   - The pending queue is **LIFO**: the newest question is answered first. If a
+     player asks the exact target word (case-insensitive, ignoring trailing
+     punctuation), it is recorded immediately as **Correct** without spending a
+     token. A player may withdraw their own unanswered question for free; both
+     Mayor-discarded and self-withdrawn questions remain visible in the question
+     log.
    - The round ends when the word is guessed (**Correct**), the budget runs out, or
      the timer expires.
 4. **Voting**
@@ -59,12 +66,14 @@ eligible; villager-only by default). The Mayor answers the questions.
 
 | Situation | Vote | Wolves win if… | Village wins if… |
 | --- | --- | --- | --- |
-| Word **guessed** | Wolves → Seer | a wolf vote hits the Seer | no wolf vote hits the Seer |
-| Word **not guessed** | All → a Wolf | the unique top-voted player is **not** a wolf, or there's a tie | the unique top-voted player **is** a wolf |
+| Word **guessed** | Wolves → Seer | the resolved vote target is the Seer | the resolved vote target is not the Seer |
+| Word **not guessed** | All → a Wolf | the resolved vote target is **not** a wolf | the resolved vote target is a wolf |
 
+If a vote has tied top targets, the server picks uniformly at random among those
+leaders and records the selected target so the end screen can show the tiebreak.
 In other words: guessing the word is good for the Village *unless* the Wolves
 then correctly out the Seer; failing to guess is good for the Wolves *unless* the
-Village then correctly outs a Wolf with a clear plurality.
+Village then outs a Wolf after any tiebreak.
 
 ## Strategy notes (from the original)
 
@@ -79,7 +88,7 @@ Village then correctly outs a Wolf with a clear plurality.
 | Rule | Code |
 | --- | --- |
 | Role deal (+2nd wolf >6) | `roles/deal-roles` |
-| Mayor eligibility + pick | `roles/choose-mayor`, `game/mayor-pick` |
+| Mayor eligibility + pick | `roles/choose-mayor`, preferred Mayor rejection sampling in `game/start-game`, `game/mayor-pick` |
 | Token economy | `game/answer-question` |
 | End-state transitions | `game/answer-question`, `game/timeout` |
 | Win resolution | `roles/resolve-winner` (pure, fully unit-tested) |
