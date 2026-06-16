@@ -117,5 +117,5 @@
 		</div>
 	</div>
 
-	<p class="text-center text-xs text-mist">4–20 players · best with 5+ · works on any device</p>
+	<p class="text-center text-xs text-mist">2–20 players · Werewords best with 5+ · works on any device</p>
 </main>
