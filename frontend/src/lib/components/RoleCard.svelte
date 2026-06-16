@@ -9,6 +9,7 @@
 	const role = $derived(lobby.you.role);
 	const isMayor = $derived(lobby.you['is-mayor']);
 	const knowsWord = $derived(lobby.you['knows-word']);
+	const wolfNames = $derived(lobby.werewolves.map((a) => lobby.players[a]?.['display-name']).filter(Boolean));
 
 	// The blurb must respect *what you actually know*, not just your role. The Mayor
 	// always knows the word (they chose it) and answers questions rather than asking
@@ -53,6 +54,9 @@
 				You are the {roleLabel[role]}{#if isMayor}<span class="text-apple-500"> · Mayor</span>{/if}
 			</p>
 			<p class="text-sm text-mist">{blurb}</p>
+			{#if role === 'werewolf' && wolfNames.length > 1}
+				<p class="mt-1 text-xs text-mist">Your pack: <span dir="auto">{wolfNames.join(', ')}</span></p>
+			{/if}
 		</div>
 	</div>
 {/if}

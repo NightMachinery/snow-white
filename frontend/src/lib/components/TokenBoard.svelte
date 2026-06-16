@@ -4,7 +4,7 @@
 
 	let { lobby }: { lobby: Lobby } = $props();
 	const isMayor = $derived(lobby.you['is-mayor']);
-	const head = $derived(lobby.questions[0]);
+	const head = $derived(lobby.questions.at(-1));
 
 	const buttons = [
 		{ a: 'yes', label: 'Yes', cls: 'bg-forest text-white' },
@@ -26,6 +26,7 @@
 		<span class="font-mono tabular-nums">
 			<span class="text-ink dark:text-snow">{lobby.tokens}</span>
 			{#if !lobby['shared-maybe-pool']}<span class="text-mist"> · maybe {lobby['maybe-tokens']}</span>{/if}
+			<span class="text-mist"> · discard {lobby['discard-tokens']}</span>
 		</span>
 	</div>
 
@@ -47,7 +48,8 @@
 			</div>
 			<button
 				onclick={() => answer('discard')}
-				class="self-start text-xs text-mist underline-offset-2 hover:underline"
+				disabled={lobby['discard-tokens'] <= 0}
+				class="self-start text-xs text-mist underline-offset-2 hover:underline disabled:opacity-40"
 			>
 				Discard this question
 			</button>

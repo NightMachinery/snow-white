@@ -5,26 +5,22 @@
 
 	let { lobby }: { lobby: Lobby } = $props();
 
-	// Deadline is fixed when this component mounts (the question round begins). We
-	// can't read the server's start time, so we anchor locally and count down —
-	// good enough for a casual timer. Captured once in the mount effect to avoid
-	// re-anchoring on every snapshot.
-	let deadline = $state(0);
-	let now = $state(0);
+	// The server anchors the deadline when the Mayor picks a word. Snapshots after
+	// answers reuse the same deadline, so the countdown does not reset.
+	let now = $state(Date.now());
 
 	$effect(() => {
-		deadline = Date.now() + lobby['timer-minutes'] * 60_000;
-		now = Date.now();
 		const id = setInterval(() => (now = Date.now()), 250);
 		return () => clearInterval(id);
 	});
 
+	const deadline = $derived(lobby['round-deadline-ms'] ?? Date.now() + lobby['timer-minutes'] * 60_000);
 	const remaining = $derived(Math.max(0, deadline - now));
 	const mm = $derived(Math.floor(remaining / 60_000));
 	const ss = $derived(Math.floor((remaining % 60_000) / 1000));
 	const low = $derived(remaining < 15_000);
 
-	let fired = false;
+	let fired = $state(false);
 	$effect(() => {
 		if (remaining === 0 && !fired && lobby.you['can-moderate']) {
 			fired = true;

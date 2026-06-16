@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Lobby } from '$lib/types';
 	import { conn } from '$lib/ws.svelte';
-	import { answerLabel } from '$lib/game';
 	import RoleCard from './RoleCard.svelte';
 	import Timer from './Timer.svelte';
 	import TokenBoard from './TokenBoard.svelte';
@@ -10,6 +9,8 @@
 	import Send from '@lucide/svelte/icons/send';
 	import Check from '@lucide/svelte/icons/check';
 	import Pencil from '@lucide/svelte/icons/pencil';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import QuestionLog from './QuestionLog.svelte';
 
 	let { lobby }: { lobby: Lobby } = $props();
 
@@ -27,15 +28,6 @@
 		edit = myPending?.text ?? '';
 	});
 
-	const answerCls: Record<string, string> = {
-		yes: 'text-forest',
-		no: 'text-dusk',
-		maybe: 'text-amber-500',
-		'so-close': 'text-apple-400',
-		'way-off': 'text-mist',
-		correct: 'text-apple-600 font-semibold'
-	};
-
 	function ask() {
 		const text = draft.trim();
 		if (!text) return;
@@ -46,6 +38,9 @@
 		const text = edit.trim();
 		if (!text) return;
 		conn.send({ type: 'game/edit', text });
+	}
+	function discardMine() {
+		conn.send({ type: 'game/discard-own' });
 	}
 </script>
 
@@ -103,6 +98,13 @@
 					>
 						<Check class="size-5" />
 					</button>
+					<button
+						onclick={discardMine}
+						aria-label="Discard my question"
+						class="grid place-items-center rounded-lg border border-frost px-3 text-mist transition hover:bg-frost dark:border-white/10 dark:hover:bg-white/10"
+					>
+						<Trash2 class="size-5" />
+					</button>
 				</div>
 			</div>
 		{/if}
@@ -111,9 +113,9 @@
 		{#if lobby.questions.length > 0}
 			<div class="flex flex-col gap-1.5">
 				<h3 class="text-xs font-medium uppercase tracking-wide text-mist">
-					Waiting for the Mayor · {lobby.questions.length}
+					Waiting for the Mayor · newest first · {lobby.questions.length}
 				</h3>
-				{#each lobby.questions as q, i (q['auth-id'] + i)}
+				{#each [...lobby.questions].reverse() as q, i (q['auth-id'] + i)}
 					<div
 						class={[
 							'flex items-baseline justify-between gap-3 rounded-xl px-3 py-2 text-sm',
@@ -129,19 +131,7 @@
 			</div>
 		{/if}
 
-		<!-- Answered history (most recent first) -->
-		<div class="flex flex-col gap-1.5">
-			{#each [...lobby.answered].reverse() as q, i (lobby.answered.length - i)}
-				<div class="flex items-baseline justify-between gap-3 rounded-xl bg-white/60 px-3 py-2 text-sm dark:bg-white/5">
-					<span class="min-w-0" dir="auto"><span class="text-mist">{q.name}:</span> {q.text}</span>
-					<span class={['shrink-0', answerCls[q.answer ?? ''] ?? 'text-mist']}>
-						{answerLabel[q.answer ?? ''] ?? q.answer}
-					</span>
-				</div>
-			{:else}
-				{#if lobby.questions.length === 0}<p class="text-sm text-mist">No answers yet.</p>{/if}
-			{/each}
-		</div>
+		<QuestionLog questions={lobby['question-log']} empty="No answers yet." />
 	</section>
 
 	<aside class="flex flex-col gap-4">

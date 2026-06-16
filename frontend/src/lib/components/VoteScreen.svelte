@@ -3,6 +3,7 @@
 	import { conn } from '$lib/ws.svelte';
 	import { seatedPlayers, me } from '$lib/game';
 	import PlayerSeat from './PlayerSeat.svelte';
+	import QuestionLog from './QuestionLog.svelte';
 
 	let { lobby, mode }: { lobby: Lobby; mode: 'village' | 'wolf' } = $props();
 
@@ -18,6 +19,10 @@
 	const candidates = $derived(
 		seatedPlayers(lobby).filter((p) => p['auth-id'] !== lobby.you['auth-id'])
 	);
+
+	const votesCast = $derived(mode === 'wolf' ? lobby['wolf-votes'].length : lobby['village-votes'].length);
+	const votesExpected = $derived(mode === 'wolf' ? lobby.werewolves.length : seatedPlayers(lobby).length);
+	const wolfNames = $derived(lobby.werewolves.map((a) => lobby.players[a]?.['display-name']).filter(Boolean));
 
 	const title = $derived(
 		mode === 'wolf' ? 'Wolves: who is the Seer?' : 'Village: who is the Wolf?'
@@ -36,6 +41,9 @@
 		});
 		voted = true;
 	}
+	function finishVote() {
+		conn.send({ type: 'game/finish-vote' });
+	}
 </script>
 
 <div
@@ -47,7 +55,25 @@
 	<div class="text-center">
 		<h2 class="font-display text-2xl">{title}</h2>
 		<p class="text-mist">{blurb}</p>
-	</div>
+		{#if lobby['chosen-word']}
+			<p class="mt-2 rounded-xl bg-frost/60 px-3 py-1.5 text-sm dark:bg-white/5">Word: <span class="font-display" dir="auto">{lobby['chosen-word']}</span></p>
+		{/if}
+		<p class="mt-2 text-xs text-mist">Votes in: {votesCast} / {votesExpected}</p>
+		{#if mode === 'wolf' && wolfNames.length > 0}
+			<p class="mt-1 text-xs text-mist">Wolves: <span dir="auto">{wolfNames.join(', ')}</span></p>
+		{/if}
+		{#if lobby['question-log'].length > 0}
+		<div class="mt-2 rounded-2xl border border-frost p-3 text-left dark:border-white/10">
+			<QuestionLog questions={lobby['question-log']} />
+		</div>
+	{/if}
+</div>
+
+	{#if lobby.you['can-moderate']}
+		<button onclick={finishVote} class="rounded-xl border border-frost px-4 py-2 text-sm text-mist transition hover:bg-frost dark:border-white/10 dark:hover:bg-white/10">
+			Finish voting with current votes
+		</button>
+	{/if}
 
 	{#if !eligible}
 		<p class="rounded-2xl bg-frost/60 p-4 text-center text-sm text-mist dark:bg-white/5">

@@ -29,7 +29,7 @@
 	function toggleRole(role: 'villager' | 'seer' | 'werewolf') {
 		conn.send({ type: 'settings/eligibility', roles: { ...elig, [role]: !elig[role] } });
 	}
-	function setBudget(patch: { tokens?: number; 'maybe-tokens'?: number }) {
+	function setBudget(patch: { tokens?: number; 'maybe-tokens'?: number; 'discard-tokens'?: number }) {
 		conn.send({ type: 'settings/budget', budget: patch });
 	}
 	function setRule(key: string, value: boolean) {
@@ -154,6 +154,20 @@
 						<span class="text-xs text-mist">maybe</span>
 					{/if}
 				</div>
+			</div>
+
+			<!-- Discard budget -->
+			<div class="flex items-center justify-between gap-2">
+				<span class="text-mist">Discard budget</span>
+				<input
+					type="number"
+					min="0"
+					disabled={!canMod}
+					value={lobby['max-discard-tokens']}
+					onchange={(e) => setBudget({ 'discard-tokens': Number(e.currentTarget.value) })}
+					class="w-16 rounded-lg border border-frost bg-snow px-2 py-1 tabular-nums disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
+					aria-label="Discard budget"
+				/>
 			</div>
 
 			<!-- Rule toggles -->

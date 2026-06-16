@@ -30,6 +30,8 @@ export interface Question {
 	name: string;
 	text: string;
 	answer?: Answer;
+	'discarded-by'?: 'mayor' | 'self';
+	auto?: boolean;
 }
 
 export interface Wordpack {
@@ -66,6 +68,14 @@ export interface You {
 }
 
 /** A full (already redacted-for-you) lobby snapshot. */
+export interface VoteResult {
+	mode: 'village' | 'wolf';
+	counts: Record<string, number>;
+	leaders: string[];
+	selected: string | null;
+	'randomized?': boolean;
+}
+
 export interface Lobby {
 	name: string;
 	'owner-id': string;
@@ -80,25 +90,32 @@ export interface Lobby {
 	// configurable economy / flow rules (mod-settable)
 	'max-tokens': number;
 	'max-maybe-tokens': number;
+	'max-discard-tokens': number;
 	'shared-maybe-pool': boolean;
 	'soft-costs': boolean;
 	'one-at-a-time': boolean;
 	'lock-seating': boolean;
 	'game-state': GameState;
 	mayor: string | null;
+	'preferred-mayor': string | null;
 	seer: string | null; // only revealed at end-game
-	werewolves: string[]; // only revealed at end-game
+	werewolves: string[]; // revealed to Wolves during play and to everyone at end-game
 	words: string[]; // candidate words (mayor only sees during pick)
 	'chosen-word': string | null; // masked unless you know the word
 	questions: Question[];
 	answered: Question[];
+	'question-log': Question[];
 	'so-close': Question | null;
 	'way-off': Question | null;
 	correct: Question | null;
 	tokens: number;
 	'maybe-tokens': number;
+	'discard-tokens': number;
+	'round-started-at-ms': number | null;
+	'round-deadline-ms': number | null;
 	'village-votes': string[];
 	'wolf-votes': string[];
+	'vote-result': VoteResult | null;
 	winner: 'village' | 'wolves' | null;
 	you: You;
 }

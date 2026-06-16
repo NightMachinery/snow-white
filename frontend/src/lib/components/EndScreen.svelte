@@ -2,6 +2,7 @@
 	import type { Lobby } from '$lib/types';
 	import { conn } from '$lib/ws.svelte';
 	import { roleLabel } from '$lib/game';
+	import QuestionLog from './QuestionLog.svelte';
 	import Trophy from '@lucide/svelte/icons/trophy';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
@@ -12,6 +13,9 @@
 	const wolves = $derived(lobby.werewolves.map((a) => lobby.players[a]?.['display-name']).filter(Boolean));
 	const seerName = $derived(lobby.seer ? lobby.players[lobby.seer]?.['display-name'] : '');
 	const villageWon = $derived(winner === 'village');
+	const voteResult = $derived(lobby['vote-result']);
+	const selectedName = $derived(voteResult?.selected ? lobby.players[voteResult.selected]?.['display-name'] : '');
+	const voteCounts = $derived(voteResult ? Object.entries(voteResult.counts) : []);
 
 	// A small, tasteful celebratory flourish: a handful of sparkles drift up behind
 	// the result banner. Purely decorative, and the global reduced-motion rule
@@ -61,6 +65,30 @@
 			<span class="font-medium" dir="auto">{seerName}</span>
 		</div>
 	</div>
+
+	{#if voteResult}
+		<div class="w-full rounded-2xl border border-frost p-4 text-left text-sm dark:border-white/10">
+			<h3 class="mb-2 text-xs font-medium uppercase tracking-wide text-mist">Vote result</h3>
+			<div class="flex flex-wrap gap-2">
+				{#each voteCounts as [auth, count] (auth)}
+					<span class="rounded-full bg-frost px-2.5 py-1 text-xs dark:bg-white/10">
+						<span dir="auto">{lobby.players[auth]?.['display-name'] ?? auth}</span>: {count}
+					</span>
+				{/each}
+			</div>
+			{#if selectedName}
+				<p class="mt-2 text-mist">
+					Resolved target: <span class="font-medium text-ink dark:text-snow" dir="auto">{selectedName}</span>{#if voteResult['randomized?']} · random tiebreak{/if}
+				</p>
+			{/if}
+		</div>
+	{/if}
+
+	{#if lobby['question-log'].length > 0}
+		<div class="w-full rounded-2xl border border-frost p-4 text-left dark:border-white/10">
+			<QuestionLog questions={lobby['question-log']} />
+		</div>
+	{/if}
 
 	<!-- Full role reveal -->
 	<div class="grid w-full grid-cols-2 gap-1.5 text-left text-xs sm:grid-cols-3">
