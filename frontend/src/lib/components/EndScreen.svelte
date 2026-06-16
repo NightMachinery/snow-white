@@ -10,9 +10,20 @@
 	let { lobby }: { lobby: Lobby } = $props();
 
 	const winner = $derived(lobby.winner);
+	const classicMode = $derived(lobby['game-mode'] === 'classic');
 	const wolves = $derived(lobby.werewolves.map((a) => lobby.players[a]?.['display-name']).filter(Boolean));
 	const seerName = $derived(lobby.seer ? lobby.players[lobby.seer]?.['display-name'] : '');
-	const villageWon = $derived(winner === 'village');
+	const villageWon = $derived(winner === 'village' || winner === 'players');
+	const resultTitle = $derived.by(() => {
+		if (winner === 'players') return 'Everyone wins!';
+		if (winner === 'word') return 'The word wins!';
+		return villageWon ? 'The Village wins!' : 'The Wolves win!';
+	});
+	const resultBlurb = $derived.by(() => {
+		if (winner === 'players') return 'The table guessed the word together.';
+		if (winner === 'word') return 'The table ran out before guessing it.';
+		return null;
+	});
 	const voteResult = $derived(lobby['vote-result']);
 	const selectedName = $derived(voteResult?.selected ? lobby.players[voteResult.selected]?.['display-name'] : '');
 	const voteCounts = $derived(voteResult ? Object.entries(voteResult.counts) : []);
@@ -48,23 +59,28 @@
 
 		<Trophy class={['size-10', villageWon ? 'text-forest' : 'text-dusk']} />
 		<h2 class="font-display text-3xl">
-			{villageWon ? 'The Village wins!' : 'The Wolves win!'}
+			{resultTitle}
 		</h2>
+		{#if resultBlurb}
+			<p class="text-mist">{resultBlurb}</p>
+		{/if}
 		<p class="text-mist">
 			The word was <span class="font-display text-ink dark:text-snow" dir="auto">{lobby['chosen-word']}</span>
 		</p>
 	</div>
 
-	<div class="grid w-full gap-2 text-left text-sm">
-		<div class="flex items-center justify-between rounded-xl bg-dusk/10 px-4 py-2">
-			<span class="text-mist">{wolves.length > 1 ? 'Wolves' : 'Wolf'}</span>
-			<span class="font-medium" dir="auto">{wolves.join(', ')}</span>
+	{#if !classicMode}
+		<div class="grid w-full gap-2 text-left text-sm">
+			<div class="flex items-center justify-between rounded-xl bg-dusk/10 px-4 py-2">
+				<span class="text-mist">{wolves.length > 1 ? 'Wolves' : 'Wolf'}</span>
+				<span class="font-medium" dir="auto">{wolves.join(', ')}</span>
+			</div>
+			<div class="flex items-center justify-between rounded-xl bg-apple-50 px-4 py-2 dark:bg-white/5">
+				<span class="text-mist">Seer</span>
+				<span class="font-medium" dir="auto">{seerName}</span>
+			</div>
 		</div>
-		<div class="flex items-center justify-between rounded-xl bg-apple-50 px-4 py-2 dark:bg-white/5">
-			<span class="text-mist">Seer</span>
-			<span class="font-medium" dir="auto">{seerName}</span>
-		</div>
-	</div>
+	{/if}
 
 	{#if voteResult}
 		<div class="w-full rounded-2xl border border-frost p-4 text-left text-sm dark:border-white/10">
@@ -91,14 +107,16 @@
 	{/if}
 
 	<!-- Full role reveal -->
-	<div class="grid w-full grid-cols-2 gap-1.5 text-left text-xs sm:grid-cols-3">
-		{#each Object.values(lobby.players).filter((p) => p.role) as p (p['auth-id'])}
-			<div class="flex items-center justify-between rounded-lg bg-white/60 px-2.5 py-1.5 dark:bg-white/5">
-				<span class="truncate" dir="auto">{p['display-name']}</span>
-				<span class="ml-1 shrink-0 text-mist">{roleLabel[p.role ?? '']}</span>
-			</div>
-		{/each}
-	</div>
+	{#if !classicMode}
+		<div class="grid w-full grid-cols-2 gap-1.5 text-left text-xs sm:grid-cols-3">
+			{#each Object.values(lobby.players).filter((p) => p.role) as p (p['auth-id'])}
+				<div class="flex items-center justify-between rounded-lg bg-white/60 px-2.5 py-1.5 dark:bg-white/5">
+					<span class="truncate" dir="auto">{p['display-name']}</span>
+					<span class="ml-1 shrink-0 text-mist">{roleLabel[p.role ?? '']}</span>
+				</div>
+			{/each}
+		</div>
+	{/if}
 
 	{#if lobby.you['can-moderate']}
 		<button

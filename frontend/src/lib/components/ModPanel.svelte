@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import type { Lobby } from '$lib/types';
+	import type { GameMode, Lobby } from '$lib/types';
 	import { conn } from '$lib/ws.svelte';
 	import { seatedPlayers, bystanders } from '$lib/game';
 	import Settings2 from '@lucide/svelte/icons/settings-2';
@@ -24,6 +24,9 @@
 
 	function setTimer(minutes: number) {
 		conn.send({ type: 'settings/timer', minutes });
+	}
+	function setGameMode(mode: GameMode) {
+		conn.send({ type: 'settings/game-mode', mode });
 	}
 	function setPick(n: number) {
 		conn.send({ type: 'settings/pick-count', 'pick-count': n });
@@ -63,6 +66,7 @@
 	const benched = $derived(bystanders(lobby));
 	const selectedWordpacks = $derived(new Set(lobby['selected-wordpacks']));
 	const customWordMode = $derived(lobby['custom-word-mode']);
+	const classicMode = $derived(lobby['game-mode'] === 'classic');
 </script>
 
 <div class="rounded-2xl border border-frost dark:border-white/10">
@@ -81,6 +85,35 @@
 
 	{#if open}
 		<div class="flex flex-col gap-3 border-t border-frost px-4 py-3 text-sm dark:border-white/10">
+			{#if !inGame}
+				<div class="flex flex-col gap-1.5">
+					<span class="text-mist">Game mode</span>
+					<div class="grid grid-cols-2 rounded-xl bg-frost p-1 dark:bg-white/10" role="group" aria-label="Game mode">
+						{#each [
+							{ mode: 'werewords', label: 'Werewords' },
+							{ mode: 'classic', label: 'Classic' }
+						] as option (option.mode)}
+							<button
+								disabled={!canMod}
+								onclick={() => setGameMode(option.mode as GameMode)}
+								class={[
+									'rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-60',
+									lobby['game-mode'] === option.mode
+										? 'bg-white text-apple-600 shadow-sm dark:bg-ink dark:text-apple-400'
+										: 'text-mist hover:bg-white/50 dark:hover:bg-white/10'
+								]}
+								aria-pressed={lobby['game-mode'] === option.mode}
+							>
+								{option.label}
+							</button>
+						{/each}
+					</div>
+					<p class="text-xs text-mist">
+						{classicMode ? 'Co-op: no hidden teams, starts with 2 players.' : 'Hidden roles: Seer, Wolves, and final votes.'}
+					</p>
+				</div>
+			{/if}
+
 			<!-- Timer -->
 			<label class="flex items-center justify-between gap-2">
 				<span class="text-mist">Timer</span>
@@ -236,7 +269,7 @@
 			</div>
 
 			<!-- Mayor eligibility (lobby only) -->
-			{#if !inGame}
+			{#if !inGame && !classicMode}
 				<div class="border-t border-frost/70 pt-2 dark:border-white/5">
 					<span class="text-mist">Mayor can be</span>
 					<div class="mt-1.5 flex flex-wrap gap-1.5">

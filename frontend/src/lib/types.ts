@@ -16,6 +16,10 @@ export type GameState =
 
 export type Role = 'villager' | 'seer' | 'werewolf' | null;
 
+export type GameMode = 'werewords' | 'classic';
+
+export type Winner = 'village' | 'wolves' | 'players' | 'word' | null;
+
 export type Answer =
 	| 'yes'
 	| 'no'
@@ -87,6 +91,7 @@ export interface Lobby {
 	settings: { minutes: number; seconds: number };
 	'available-wordpacks': Wordpack[];
 	'selected-wordpacks': string[];
+	'game-mode': GameMode;
 	'mayor-eligibility': { villager: boolean; seer: boolean; werewolf: boolean };
 	'timer-minutes': number;
 	'pick-count': number;
@@ -120,7 +125,7 @@ export interface Lobby {
 	'village-votes': string[];
 	'wolf-votes': string[];
 	'vote-result': VoteResult | null;
-	winner: 'village' | 'wolves' | null;
+	winner: Winner;
 	you: You;
 }
 

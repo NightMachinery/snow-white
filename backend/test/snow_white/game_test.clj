@@ -33,6 +33,31 @@
   (is (= :lobby (:game-state (g/start-game (lobby-with-players 3)))))
   (is (= :mayor-pick (:game-state (g/start-game (lobby-with-players 4))))))
 
+(deftest game-mode-defaults-and-normalizes
+  (let [l (g/new-lobby :p0 "test")]
+    (is (= :werewords (:game-mode l)))
+    (is (= :classic (:game-mode (g/set-game-mode l "classic"))))
+    (is (= :werewords (:game-mode (g/set-game-mode l :werewords))))
+    (is (= :werewords (:game-mode (g/set-game-mode l "bogus"))))))
+
+(deftest game-mode-is-lobby-only-setting
+  (let [l (-> (lobby-with-players 4)
+              (g/set-game-mode :classic)
+              g/start-game)]
+    (is (= :classic (:game-mode l)))
+    (is (= :classic (:game-mode (g/set-game-mode l :werewords))))))
+
+(deftest classic-starts-with-two-players-and-no-hidden-teams
+  (let [l (-> (lobby-with-players 2)
+              (g/set-game-mode :classic)
+              g/start-game)]
+    (is (= :mayor-pick (:game-state l)))
+    (is (= :classic (:game-mode l)))
+    (is (some? (:mayor l)))
+    (is (nil? (:seer l)))
+    (is (empty? (:werewolves l)))
+    (is (every? #(= :villager (:role %)) (vals (:players l))))))
+
 (deftest offline-seated-players-count-for-starting
   (let [l (-> (lobby-with-players 4)
               (g/mark-offline :p3)
@@ -64,6 +89,57 @@
         l (g/answer-question l mayor :correct)]
     (is (= :word-guessed (:game-state l)))
     (is (some? (:correct l)))))
+
+(deftest classic-correct-guess-ends-with-players-win
+  (let [l (-> (lobby-with-players 2)
+              (g/set-game-mode :classic)
+              g/start-game)
+        mayor (:mayor l)
+        word (first (:words l))
+        asker (first (remove #{mayor} (keys (:players l))))
+        l (-> l
+              (g/mayor-pick mayor word)
+              (g/ask-question asker "Is this correct?")
+              (g/answer-question mayor :correct)
+              g/finalize)]
+    (is (= :end-game (:game-state l)))
+    (is (= :players (:winner l)))
+    (is (nil? (:vote-result l)))))
+
+(deftest classic-timeout-and-token-exhaustion-end-with-word-win
+  (let [timed-out (let [l (-> (lobby-with-players 2)
+                              (g/set-game-mode :classic)
+                              g/start-game)]
+                    (-> l
+                        (g/mayor-pick (:mayor l) (first (:words l)))
+                        g/timeout
+                        g/finalize))
+        out-of-tokens (let [l (-> (lobby-with-players 2)
+                                  (g/set-game-mode :classic)
+                                  (g/set-budget {:tokens 1})
+                                  g/start-game)
+                            mayor (:mayor l)
+                            word (first (:words l))
+                            asker (first (remove #{mayor} (keys (:players l))))]
+                        (-> l
+                            (g/mayor-pick mayor word)
+                            (g/ask-question asker "No?")
+                            (g/answer-question mayor :no)
+                            g/finalize))]
+    (is (= :end-game (:game-state timed-out)))
+    (is (= :word (:winner timed-out)))
+    (is (= :end-game (:game-state out-of-tokens)))
+    (is (= :word (:winner out-of-tokens)))))
+
+(deftest classic-votes-are-no-ops
+  (let [l (-> (lobby-with-players 2)
+              (g/set-game-mode :classic)
+              g/start-game
+              (assoc :game-state :word-guessed))
+        timed-out (assoc l :game-state :out-of-time)]
+    (is (= l (g/wolf-vote l :p0 :p1)))
+    (is (= timed-out (g/village-vote timed-out :p0 :p1)))
+    (is (= timed-out (g/finish-vote timed-out :village)))))
 
 (deftest wolf-vote-resolves
   (let [l (-> (lobby-with-players 5) g/start-game)

@@ -17,7 +17,8 @@
 	const others = $derived(bystanders(lobby));
 	const myself = $derived(me(lobby));
 	const tableCount = $derived(seatedCount(lobby));
-	const canStart = $derived(lobby.you['can-moderate'] && tableCount >= 4);
+	const minimumPlayers = $derived(lobby['game-mode'] === 'classic' ? 2 : 4);
+	const canStart = $derived(lobby.you['can-moderate'] && tableCount >= minimumPlayers);
 	const amSeated = $derived(Boolean(myself?.seat) && !myself?.spectator);
 	let renameDraft = $state(identity.name);
 	let inviteCopied = $state(false);
@@ -143,8 +144,8 @@
 			>
 				<Play class="size-5" /> Start game
 			</button>
-			{#if tableCount < 4}
-				<p class="-mt-2 text-center text-xs text-mist">Need at least 4 seated players.</p>
+			{#if tableCount < minimumPlayers}
+				<p class="-mt-2 text-center text-xs text-mist">Need at least {minimumPlayers} seated players.</p>
 			{/if}
 		{:else}
 			<p class="rounded-2xl bg-frost/60 p-4 text-center text-sm text-mist dark:bg-white/5">

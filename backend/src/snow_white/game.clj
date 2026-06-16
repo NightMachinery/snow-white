@@ -50,6 +50,11 @@
   "Valid Mayor answers to a question and how they spend the token economy."
   #{:yes :no :maybe :so-close :way-off :correct :discard})
 
+(def game-modes
+  "Room-level game variants. Werewords is the hidden-role game; Classic is
+  cooperative 20 questions with no Seer/Wolves."
+  #{:werewords :classic})
+
 ;; ---------------------------------------------------------------------------
 ;; Lobby & player construction
 ;; ---------------------------------------------------------------------------
@@ -90,6 +95,7 @@
    :settings         {:minutes 1 :seconds 0}
    :available-wordpacks (words/available-wordpacks)
    :selected-wordpacks (words/normalize-selection [words/default-wordpack-id])
+   :game-mode       :werewords
    :mayor-eligibility {:villager true :seer false :werewolf true}
    :timer-minutes    1
    :pick-count       2
@@ -433,6 +439,18 @@
     (assoc lobby :custom-word-mode (boolean enabled))
     lobby))
 
+(defn- normalize-game-mode [mode]
+  (let [mode (if (keyword? mode) mode (keyword (str mode)))]
+    (if (game-modes mode) mode :werewords)))
+
+(defn set-game-mode
+  "Set the room's game variant. Lobby-only so a running round keeps a stable
+  role/vote model. Invalid values fall back to Werewords."
+  [lobby mode]
+  (if (= :lobby (:game-state lobby))
+    (assoc lobby :game-mode (normalize-game-mode mode))
+    lobby))
+
 (defn- get-either
   "Read keyword or string keys from nested Transit maps. The JS client sends
   top-level command keys as keywords, but nested object keys may arrive as
@@ -561,17 +579,23 @@
 
 (defn start-game
   "Deal roles to seated players, choose a Mayor, draw candidate words, and move
-  to :mayor-pick. Returns lobby unchanged if fewer than 4 seated players."
+  to :mayor-pick. Werewords requires 4 seated players; Classic requires 2."
   [lobby]
-  (let [seated-auths (->> (:players lobby) (filter (comp seated? val)) (map key) vec)]
-    (if (< (count seated-auths) 4)
+  (let [mode (normalize-game-mode (:game-mode lobby))
+        seated-auths (->> (:players lobby) (filter (comp seated? val)) (map key) vec)
+        min-players (if (= mode :classic) 2 4)]
+    (if (< (count seated-auths) min-players)
       lobby
       (let [selected-wordpacks (words/normalize-selection (:selected-wordpacks lobby))
             preferred (when (preferred-active? lobby (:preferred-mayor lobby)) (:preferred-mayor lobby))
-            roles-by-auth (deal-roles-for-mayor seated-auths (:mayor-eligibility lobby) preferred)
-            mayor (if (and preferred (eligible-role? (:mayor-eligibility lobby) (roles-by-auth preferred)))
-                    preferred
-                    (roles/choose-mayor roles-by-auth (:mayor-eligibility lobby)))
+            roles-by-auth (if (= mode :classic)
+                            (zipmap seated-auths (repeat :villager))
+                            (deal-roles-for-mayor seated-auths (:mayor-eligibility lobby) preferred))
+            mayor (if (= mode :classic)
+                    (or preferred (rand-nth seated-auths))
+                    (if (and preferred (eligible-role? (:mayor-eligibility lobby) (roles-by-auth preferred)))
+                      preferred
+                      (roles/choose-mayor roles-by-auth (:mayor-eligibility lobby))))
             seer  (some (fn [[a r]] (when (= r :seer) a)) roles-by-auth)
             wolves (->> roles-by-auth (filter #(= :werewolf (val %))) (map key) set)
             lobby (reduce (fn [l a]
@@ -580,6 +604,7 @@
                                 (assoc-in [:players a :mayor] (= a mayor))))
                           lobby seated-auths)]
         (assoc lobby
+               :game-mode mode
                :game-state :mayor-pick
                :mayor mayor
                :seer seer
@@ -659,7 +684,9 @@
         (-> lobby
             (update-in [:players auth-id :tokens :correct] (fnil conj []) q)
             (log-question q :correct {:auto? true})
-            (assoc :correct q :game-state :word-guessed))
+            (assoc :correct q
+                   :game-state (if (= :classic (:game-mode lobby)) :end-game :word-guessed)
+                   :winner (when (= :classic (:game-mode lobby)) :players)))
         (update lobby :questions conj q))
       lobby)))
 
@@ -725,14 +752,19 @@
                       (log-question q answer {})
                       drop-current-question)
             lobby (case answer
-                    :correct  (assoc lobby :correct q :game-state :word-guessed)
+                    :correct  (assoc lobby :correct q
+                                      :game-state (if (= :classic (:game-mode lobby)) :end-game :word-guessed)
+                                      :winner (if (= :classic (:game-mode lobby)) :players (:winner lobby)))
                     :so-close (assoc lobby :so-close q)
                     :way-off  (assoc lobby :way-off q)
                     lobby)
             lobby (if (= answer :correct) lobby (spend-token lobby answer))]
         (if (and (not= (:game-state lobby) :word-guessed)
+                 (not= (:game-state lobby) :end-game)
                  (<= (:tokens lobby) 0))
-          (assoc lobby :game-state :out-of-tokens)
+          (if (= :classic (:game-mode lobby))
+            (assoc lobby :game-state :end-game :winner :word)
+            (assoc lobby :game-state :out-of-tokens))
           lobby)))))
 
 (defn discard-own-question
@@ -751,7 +783,9 @@
   "Timer expired during the question round."
   [lobby]
   (if (= (:game-state lobby) :question-round)
-    (assoc lobby :game-state :out-of-time)
+    (if (= :classic (:game-mode lobby))
+      (assoc lobby :game-state :end-game :winner :word)
+      (assoc lobby :game-state :out-of-time))
     lobby))
 
 (defn- store-vote-result [lobby mode]
@@ -764,6 +798,7 @@
   guessed). When everyone seated has voted, resolve the end."
   [lobby voter-auth target-auth]
   (if (and (#{:out-of-time :out-of-tokens} (:game-state lobby))
+           (= :werewords (:game-mode lobby))
            (seated? (get-in lobby [:players voter-auth])))
     (let [lobby (update lobby :village-votes conj target-auth)
           ;; everyone seated votes in the village round, including offline players
@@ -778,6 +813,7 @@
   guessed). When all wolves have voted, resolve the end."
   [lobby voter-auth target-auth]
   (if (and (= (:game-state lobby) :word-guessed)
+           (= :werewords (:game-mode lobby))
            (contains? (:werewolves lobby) voter-auth)
            (seated? (get-in lobby [:players voter-auth])))
     (let [lobby (update lobby :wolf-votes conj target-auth)]
@@ -789,24 +825,34 @@
 (defn finish-vote
   "Moderator shortcut: end the current voting stage using currently cast votes."
   ([lobby]
-   (cond
-     (#{:out-of-time :out-of-tokens} (:game-state lobby)) (finish-vote lobby :village)
-     (= :word-guessed (:game-state lobby)) (finish-vote lobby :wolf)
-     :else lobby))
+   (if (not= :werewords (:game-mode lobby))
+     lobby
+     (cond
+       (#{:out-of-time :out-of-tokens} (:game-state lobby)) (finish-vote lobby :village)
+       (= :word-guessed (:game-state lobby)) (finish-vote lobby :wolf)
+       :else lobby)))
   ([lobby mode]
-   (case mode
-     :village (if (#{:out-of-time :out-of-tokens} (:game-state lobby))
-                (-> lobby (store-vote-result :village) (assoc :game-state :end-game))
-                lobby)
-     :wolf (if (= :word-guessed (:game-state lobby))
-             (-> lobby (store-vote-result :wolf) (assoc :game-state :end-game))
-             lobby)
-     lobby)))
+   (if (not= :werewords (:game-mode lobby))
+     lobby
+     (case mode
+       :village (if (#{:out-of-time :out-of-tokens} (:game-state lobby))
+                  (-> lobby (store-vote-result :village) (assoc :game-state :end-game))
+                  lobby)
+       :wolf (if (= :word-guessed (:game-state lobby))
+               (-> lobby (store-vote-result :wolf) (assoc :game-state :end-game))
+               lobby)
+       lobby))))
 
 (defn finalize
   "Compute and store the winning team. Idempotent."
   [lobby]
-  (if (and (= (:game-state lobby) :end-game) (nil? (:winner lobby)))
+  (cond
+    (and (= (:game-state lobby) :end-game)
+         (= :classic (:game-mode lobby))
+         (nil? (:winner lobby)))
+    (assoc lobby :winner (if (:correct lobby) :players :word))
+
+    (and (= (:game-state lobby) :end-game) (nil? (:winner lobby)))
     (let [lobby (cond
                   (and (:correct lobby) (nil? (:vote-result lobby))) (store-vote-result lobby :wolf)
                   (nil? (:vote-result lobby)) (store-vote-result lobby :village)
@@ -816,7 +862,8 @@
                    (if (= selected (:seer lobby)) :wolves :village)
                    (if ((set (:werewolves lobby)) selected) :village :wolves))]
       (assoc lobby :winner winner))
-    lobby))
+
+    :else lobby))
 
 (defn reset-game
   "Return everyone to the lobby, clearing round state but keeping seats,

@@ -1,10 +1,11 @@
 # Snow White 🍎
 
-A modern, self-hostable, browser-based party game — a blend of **social deduction**
-(werewolf) and **20 questions**. Players take seats, get hidden roles (Villager, Seer,
-Werewolf), a randomly-chosen **Mayor** picks a secret word, and everyone asks yes/no
-questions the Mayor answers — racing to guess the word before the tokens or timer run out,
-then voting to unmask the hidden roles.
+A modern, self-hostable, browser-based party game with two modes: **Werewords**, a blend
+of social deduction (werewolf) and **20 questions**, and **Classic**, a cooperative
+20-questions mode for as few as two players. Players take seats, a randomly-chosen
+**Mayor** picks a secret word, and everyone asks yes/no questions the Mayor answers —
+racing to guess the word before the tokens or timer run out. Werewords adds hidden roles
+(Villager, Seer, Werewolf) and a final vote to unmask them.
 
 > Snow White is a ground-up rewrite of the older "Were Words" / WordWolf game, rebuilt with a
 > **Clojure** backend and a **SvelteKit 5** frontend. It is also a learning project — see

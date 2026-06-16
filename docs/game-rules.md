@@ -1,11 +1,16 @@
 # Game Rules
 
-Snow White is a blend of **social deduction** (werewolf) and **20 questions**.
-4–20 players; best with 5+.
+Snow White has two modes:
+
+- **Werewords** — the default blend of **social deduction** (werewolf) and **20 questions**.
+  4–20 players; best with 5+.
+- **Classic** — cooperative 20 questions with no Seer, no Werewolves, and no final vote.
+  2–20 players; everyone wins together if the word is guessed, and everyone loses together
+  if time or answer tokens run out.
 
 ## Roles
 
-Everyone gets a hidden role when the game starts:
+In **Werewords**, everyone gets a hidden role when the game starts:
 
 - **Villagers** (the majority) — do **not** know the secret word. They ask
   questions to discover it.
@@ -19,10 +24,14 @@ Teams: Villagers + Seer = **Village**. Werewolves = **Wolves**.
 One player is also designated the **Mayor** (configurable which roles are
 eligible; Villagers and Werewolves are eligible by default, Seers are not). The Mayor answers the questions.
 
+In **Classic**, every seated player is treated as a Villager for code/UI compatibility,
+but there are no hidden teams: the Mayor knows the word, answers questions, and the
+rest of the table cooperates to guess it.
+
 ## Flow
 
 1. **Lobby** — players take seats (up to 20 seated participants; others spectate). Mods
-   configure the timer, candidate-word count, selected wordpacks or custom-word mode, mayor
+   choose **Werewords** or **Classic** with the segmented mode selector, then configure the timer, candidate-word count, selected wordpacks or custom-word mode, mayor
    eligibility, the token economy (above), and may **bench** a player or
    **seat** a spectator. With *Lock seating* on, only mods move players between
    seat and bench. The same settings panel is available (collapsed) during the
@@ -40,7 +49,8 @@ eligible; Villagers and Werewolves are eligible by default, Seers are not). The 
 2. **Mayor picks** — normally the Mayor is shown N random candidate words from
    the room's selected wordpacks and chooses one secret word. If mods enabled
    *Mayor writes custom word* in the lobby, the Mayor instead types any non-blank
-   word or phrase. Only the Mayor, Seer, and Wolves will know it.
+   word or phrase. In Werewords only the Mayor, Seer, and Wolves will know it;
+   in Classic only the Mayor knows it during play.
 3. **Question round** — players ask yes/no questions. The Mayor answers each
    with **Yes / No / Maybe / So close / Way off / Correct**, or discards it.
    - Each player may have **one pending (unanswered) question at a time** and can
@@ -66,8 +76,10 @@ eligible; Villagers and Werewolves are eligible by default, Seers are not). The 
      sees that Villager badge.
    - The round ends when the word is guessed (**Correct**), the budget runs out, or
      the timer expires.
-4. **Voting** — the target word is revealed to everyone as soon as voting
-   begins, but hidden roles stay secret until final resolution.
+4. **Voting / resolution** — in Classic, the game ends immediately: the table wins
+   if the word was guessed and loses if time/tokens ran out. In Werewords, the
+   target word is revealed to everyone as soon as voting begins, but hidden roles
+   stay secret until final resolution.
    - If the word **was guessed**: the **Wolves** secretly vote for who they think
      the **Seer** is.
    - If the word was **not guessed**: **everyone** votes for who they think a
@@ -75,6 +87,11 @@ eligible; Villagers and Werewolves are eligible by default, Seers are not). The 
 5. **Resolution** (see win conditions below).
 
 ## Win conditions
+
+Classic is cooperative: **everyone wins** on a correct guess, and **the word wins**
+when time or answer tokens run out.
+
+Werewords uses hidden-team win conditions:
 
 | Situation | Vote | Wolves win if… | Village wins if… |
 | --- | --- | --- | --- |
@@ -99,6 +116,7 @@ Village then outs a Wolf after any tiebreak.
 
 | Rule | Code |
 | --- | --- |
+| Game mode + start minimum | `game/set-game-mode`, `game/start-game` |
 | Role deal (+2nd wolf >6) | `roles/deal-roles` |
 | Mayor eligibility + pick | `roles/choose-mayor`, preferred Mayor rejection sampling in `game/start-game`, `game/mayor-pick` |
 | Token economy | `game/answer-question` |

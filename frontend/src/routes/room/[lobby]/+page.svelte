@@ -128,8 +128,8 @@
 				<EndScreen {lobby} />
 			{/if}
 
-			<!-- Wolves vote for the seer once the word is guessed -->
-			{#if gameState === 'word-guessed'}
+			<!-- Wolves vote for the seer once the word is guessed in Werewords mode. -->
+			{#if gameState === 'word-guessed' && lobby['game-mode'] === 'werewords'}
 				<VoteScreen {lobby} mode="wolf" />
 			{/if}
 		</div>

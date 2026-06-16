@@ -6,6 +6,7 @@
 	let { lobby }: { lobby: Lobby } = $props();
 	const isMayor = $derived(lobby.you['is-mayor']);
 	const mayorName = $derived(lobby.mayor ? lobby.players[lobby.mayor]?.['display-name'] : '');
+	const classicMode = $derived(lobby['game-mode'] === 'classic');
 	let customWord = $state('');
 
 	function submitCustomWord() {
@@ -21,7 +22,9 @@
 	{#if isMayor}
 		<div class="text-center">
 			<h2 class="font-display text-2xl">{lobby['custom-word-mode'] ? 'Write the secret word' : 'Choose the secret word'}</h2>
-			<p class="text-mist">Only the Seer and Wolves will know it too.</p>
+			<p class="text-mist">
+				{classicMode ? 'You will answer while everyone else tries to guess it.' : 'Only the Seer and Wolves will know it too.'}
+			</p>
 		</div>
 		{#if lobby['custom-word-mode']}
 			<div class="rounded-card border border-frost bg-white/70 p-5 shadow-sm dark:border-white/10 dark:bg-white/5">

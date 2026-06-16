@@ -8,6 +8,7 @@
 	let { lobby }: { lobby: Lobby } = $props();
 	const role = $derived(lobby.you.role);
 	const isMayor = $derived(lobby.you['is-mayor']);
+	const classicMode = $derived(lobby['game-mode'] === 'classic');
 	const knowsWord = $derived(lobby.you['knows-word']);
 	const wolfNames = $derived(lobby.werewolves.map((a) => lobby.players[a]?.['display-name']).filter(Boolean));
 
@@ -15,6 +16,11 @@
 	// always knows the word (they chose it) and answers questions rather than asking
 	// them — so a villager-Mayor must not be told "you don't know the word".
 	const blurb = $derived.by(() => {
+		if (classicMode) {
+			return isMayor
+				? 'You know the word and answer the table. Everyone wins together if they guess it.'
+				: 'Work together to ask sharp yes/no questions and guess the word before time runs out.';
+		}
 		if (isMayor) {
 			if (role === 'werewolf')
 				return 'You picked the word and you run the table — answer to mislead, and blend in.';
@@ -51,7 +57,11 @@
 		</span>
 		<div>
 			<p class="font-display text-lg leading-tight">
-				You are the {roleLabel[role]}{#if isMayor}<span class="text-apple-500"> · Mayor</span>{/if}
+				{#if classicMode}
+					Classic mode{#if isMayor}<span class="text-apple-500"> · Mayor</span>{/if}
+				{:else}
+					You are the {roleLabel[role]}{#if isMayor}<span class="text-apple-500"> · Mayor</span>{/if}
+				{/if}
 			</p>
 			<p class="text-sm text-mist">{blurb}</p>
 			{#if role === 'werewolf' && wolfNames.length > 1}
