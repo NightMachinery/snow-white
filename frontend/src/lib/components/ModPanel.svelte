@@ -9,6 +9,8 @@
 	import UserPlus from '@lucide/svelte/icons/user-plus';
 	import ShieldPlus from '@lucide/svelte/icons/shield-plus';
 	import ShieldMinus from '@lucide/svelte/icons/shield-minus';
+	import MonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
+	import Check from '@lucide/svelte/icons/check';
 
 	// `compact` (mid-game) renders the panel collapsed behind a disclosure button;
 	// the lobby renders it always-open. The same controls are used in both places.
@@ -21,6 +23,8 @@
 	// Lobby: open by default. Mid-game (compact): collapsed behind a disclosure.
 	// `compact` is fixed per mount, so read it untracked to set the initial state.
 	let open = $state(untrack(() => !compact));
+	let copiedMigrationFor = $state<string | null>(null);
+	let copiedMigrationTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function setTimer(minutes: number) {
 		conn.send({ type: 'settings/timer', minutes });
@@ -60,6 +64,34 @@
 	}
 	function demote(target: string) {
 		conn.send({ type: 'mod/demote', target });
+	}
+	function legacyCopy(text: string): boolean {
+		const textarea = document.createElement('textarea');
+		textarea.value = text;
+		textarea.setAttribute('readonly', '');
+		textarea.style.position = 'fixed';
+		textarea.style.left = '-9999px';
+		document.body.appendChild(textarea);
+		textarea.select();
+		const ok = document.execCommand('copy');
+		document.body.removeChild(textarea);
+		return ok;
+	}
+	async function copyMigration(authId: string, token: string | null | undefined) {
+		if (!token) return;
+		const url = `${location.origin}/room/${encodeURIComponent(lobby.name)}?migrate=${encodeURIComponent(token)}`;
+		try {
+			if (navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(url);
+			} else if (!legacyCopy(url)) {
+				throw new Error('copy failed');
+			}
+			copiedMigrationFor = authId;
+			if (copiedMigrationTimer) clearTimeout(copiedMigrationTimer);
+			copiedMigrationTimer = setTimeout(() => (copiedMigrationFor = null), 1500);
+		} catch {
+			prompt('Copy migrate-device link', url);
+		}
 	}
 
 	const seated = $derived(seatedPlayers(lobby));
@@ -300,6 +332,11 @@
 							<div class="flex items-center justify-between gap-2">
 								<span class="truncate" dir="auto">{p['display-name']}</span>
 								<div class="flex shrink-0 gap-1">
+									{#if p['migration-token']}
+										<button onclick={() => copyMigration(p['auth-id'], p['migration-token'])} class="rounded-lg px-2 py-1 text-xs text-mist transition hover:bg-frost hover:text-apple-500 dark:hover:bg-white/10" aria-label="Copy this player's migrate-device link" title="Copy this player's migrate-device link">
+											{#if copiedMigrationFor === p['auth-id']}<Check class="size-3.5 text-forest" />{:else}<MonitorSmartphone class="size-3.5" />{/if}
+										</button>
+									{/if}
 									{#if !p['is-owner'] && !p['is-mod'] && !p['is-temp-mod']}
 										<button onclick={() => promote(p['auth-id'])} class="rounded-lg px-2 py-1 text-xs text-forest transition hover:bg-frost dark:hover:bg-white/10" aria-label="Promote moderator" title="Promote moderator"><ShieldPlus class="size-3.5" /></button>
 									{/if}
@@ -314,6 +351,11 @@
 							<div class="flex items-center justify-between gap-2 text-mist">
 								<span class="truncate" dir="auto">{p['display-name']}</span>
 								<div class="flex shrink-0 gap-1">
+									{#if p['migration-token']}
+										<button onclick={() => copyMigration(p['auth-id'], p['migration-token'])} class="rounded-lg px-2 py-1 text-xs text-mist transition hover:bg-apple-50 hover:text-apple-500 dark:hover:bg-white/5" aria-label="Copy this player's migrate-device link" title="Copy this player's migrate-device link">
+											{#if copiedMigrationFor === p['auth-id']}<Check class="size-3.5 text-forest" />{:else}<MonitorSmartphone class="size-3.5" />{/if}
+										</button>
+									{/if}
 									{#if !p['is-owner'] && !p['is-mod'] && !p['is-temp-mod']}
 										<button onclick={() => promote(p['auth-id'])} class="rounded-lg px-2 py-1 text-xs text-forest transition hover:bg-apple-50 dark:hover:bg-white/5" aria-label="Promote moderator" title="Promote moderator"><ShieldPlus class="size-3.5" /></button>
 									{/if}
