@@ -32,6 +32,7 @@
 (def start-tokens 36)        ; shared yes/no budget
 (def start-maybe-tokens 12)  ; shared "maybe" budget
 (def start-discard-tokens 5) ; shared Mayor discard budget
+(def temp-mod-delay-ms (* 5 60 1000))
 
 (def seat-ids
   "Stable seat keywords :seat-1 .. :seat-20."
@@ -79,6 +80,7 @@
    :temp-mods        #{}               ; auto-elected fallback mods
    :mod-promoters    {}                ; who promoted whom (for demote rules)
    :active-temp-mod  nil
+   :no-real-mod-since-ms nil
    :name-assignments {}                ; auth-id -> {:base-name :display-name :display-number}
    :used-numbers     {}                ; base-name -> #{numbers}
    :migration->auth  {}               ; migration-token -> auth-id
@@ -202,6 +204,12 @@
           (assoc-in [:auth->migration auth-id] tok)
           (assoc-in [:migration->auth tok] auth-id)))))
 
+(defn auth-for-migration
+  "Resolve a room-scoped migration token to its auth-id, or nil if invalid."
+  [lobby migration-token]
+  (when (seq (str migration-token))
+    (get-in lobby [:migration->auth migration-token])))
+
 (defn seat-player
   "Seat `auth-id` at `seat` (defaulting to first free). Returns lobby unchanged
   if the seat is taken by someone else or no seat is available."
@@ -237,7 +245,7 @@
 ;; ---------------------------------------------------------------------------
 
 (defn online-real-mod?
-  "Is the owner or any promoted mod currently online?"
+  "Is the owner or any promoted real mod currently online?"
   [lobby]
   (boolean
    (some (fn [[auth p]]
@@ -245,26 +253,104 @@
                 (or (= auth (:owner-id lobby)) (contains? (:mods lobby) auth))))
          (:players lobby))))
 
+(defn real-mod?
+  "Owner and promoted mods are real mods. Temp mods are intentionally separate."
+  [lobby auth-id]
+  (boolean (or (= auth-id (:owner-id lobby))
+               (contains? (:mods lobby) auth-id))))
+
+(defn active-temp-mod?
+  [lobby auth-id]
+  (and (not (online-real-mod? lobby))
+       (:active-temp-mod lobby)
+       (contains? (:temp-mods lobby) auth-id)))
+
 (defn can-moderate?
   "May `auth-id` perform moderator actions? Owner, promoted mods, and the
   currently-active temp mod (only when no real mod is online) all qualify."
   [lobby auth-id]
-  (boolean
-   (and auth-id
-        (or (= auth-id (:owner-id lobby))
-            (contains? (:mods lobby) auth-id)
-            (and (not (online-real-mod? lobby))
-                 (= auth-id (:active-temp-mod lobby)))))))
+  (boolean (and auth-id (or (real-mod? lobby auth-id)
+                            (active-temp-mod? lobby auth-id)))))
+
+(defn promote-mod
+  "Promote `target-auth` according to requester power.
+
+  Owner and promoted real mods create real mods. The active temp mod has full mod
+  powers, but anyone they promote is a temp mod, not a real mod."
+  [lobby requester target-auth]
+  (cond
+    (or (nil? target-auth)
+        (= target-auth (:owner-id lobby))
+        (nil? (get-in lobby [:players target-auth]))
+        (not (can-moderate? lobby requester)))
+    lobby
+
+    (active-temp-mod? lobby requester)
+    (-> lobby
+        (update :temp-mods conj target-auth)
+        (assoc-in [:mod-promoters target-auth] requester))
+
+    (real-mod? lobby requester)
+    (-> lobby
+        (update :mods conj target-auth)
+        (assoc-in [:mod-promoters target-auth] requester))
+
+    :else lobby))
+
+(defn demote-mod
+  "Demote a promoted mod/temp mod. Owner can demote anyone except themselves;
+  other moderators can only demote people they promoted. Owner never transfers."
+  [lobby requester target-auth]
+  (cond
+    (or (= target-auth (:owner-id lobby))
+        (nil? target-auth)
+        (not (can-moderate? lobby requester)))
+    lobby
+
+    (or (= requester (:owner-id lobby))
+        (= requester (get-in lobby [:mod-promoters target-auth])))
+    (-> lobby
+        (update :mods disj target-auth)
+        (update :temp-mods disj target-auth)
+        (update :mod-promoters dissoc target-auth)
+        (update :active-temp-mod #(when (not= % target-auth) %)))
+
+    :else lobby))
+
+(defn refresh-temp-mods
+  "Update temp-mod state for `now-ms`.
+
+  If no real mod is online for five minutes, choose an active temp mod. Prefer a
+  previously designated temp mod who is online; otherwise pick a random online
+  player and remember them in `:temp-mods`. When a real mod is online, clear the
+  active temp mod but keep `:temp-mods` for future outages."
+  [lobby now-ms]
+  (if (online-real-mod? lobby)
+    (assoc lobby :active-temp-mod nil :no-real-mod-since-ms nil)
+    (let [since (or (:no-real-mod-since-ms lobby) now-ms)
+          lobby (assoc lobby :no-real-mod-since-ms since)]
+      (if (and (nil? (:active-temp-mod lobby))
+               (<= temp-mod-delay-ms (- now-ms since)))
+        (let [online-auths (->> (:players lobby)
+                                (filter (comp :online val))
+                                (map key)
+                                (remove #{(:owner-id lobby)})
+                                vec)
+              preferred (some (set online-auths) (:temp-mods lobby))
+              chosen (or preferred (when (seq online-auths) (rand-nth online-auths)))]
+          (cond-> lobby
+            chosen (assoc :active-temp-mod chosen)
+            chosen (update :temp-mods conj chosen)))
+        lobby))))
 
 (defn decorate-player
   "Add derived moderation flags to a player map for client display."
   [lobby auth player]
-  (let [real-mod? (online-real-mod? lobby)]
-    (assoc player
-           :is-owner     (= auth (:owner-id lobby))
-           :is-mod       (contains? (:mods lobby) auth)
-           :is-temp-mod  (contains? (:temp-mods lobby) auth)
-           :can-moderate (can-moderate? lobby auth))))
+  (assoc player
+         :is-owner     (= auth (:owner-id lobby))
+         :is-mod       (contains? (:mods lobby) auth)
+         :is-temp-mod  (contains? (:temp-mods lobby) auth)
+         :can-moderate (can-moderate? lobby auth)))
 
 ;; ---------------------------------------------------------------------------
 ;; Joining / leaving

@@ -28,6 +28,8 @@
 	function bench(id: string) { conn.send({ type: 'mod/unseat', target: id }); }
 	function seat(id: string) { conn.send({ type: 'mod/seat', target: id }); }
 	function mayor(id: string) { conn.send({ type: 'mod/mayor', target: id }); }
+	function promote(id: string) { conn.send({ type: 'mod/promote', target: id }); }
+	function demote(id: string) { conn.send({ type: 'mod/demote', target: id }); }
 </script>
 
 <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -44,7 +46,7 @@
 		{:else}
 			<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 				{#each seated as p (p['auth-id'])}
-					<PlayerSeat player={p} {lobby} onbench={lobby.you['can-moderate'] ? bench : undefined} onmayor={lobby.you['can-moderate'] ? mayor : undefined} />
+					<PlayerSeat player={p} {lobby} onbench={lobby.you['can-moderate'] ? bench : undefined} onmayor={lobby.you['can-moderate'] ? mayor : undefined} onpromote={lobby.you['can-moderate'] ? promote : undefined} ondemote={lobby.you['can-moderate'] ? demote : undefined} />
 				{/each}
 			</div>
 		{/if}
@@ -53,7 +55,7 @@
 			<h3 class="mb-2 mt-5 text-sm font-medium text-mist">Watching ({others.length})</h3>
 			<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 				{#each others as p (p['auth-id'])}
-					<PlayerSeat player={p} {lobby} onseat={lobby.you['can-moderate'] ? seat : undefined} onmayor={lobby.you['can-moderate'] ? mayor : undefined} />
+					<PlayerSeat player={p} {lobby} onseat={lobby.you['can-moderate'] ? seat : undefined} onmayor={lobby.you['can-moderate'] ? mayor : undefined} onpromote={lobby.you['can-moderate'] ? promote : undefined} ondemote={lobby.you['can-moderate'] ? demote : undefined} />
 				{/each}
 			</div>
 		{/if}

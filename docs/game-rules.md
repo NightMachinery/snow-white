@@ -24,11 +24,19 @@ eligible; Villagers and Werewolves are eligible by default, Seers are not). The 
 1. **Lobby** — players take seats (up to 20 seated participants; others spectate). Mods
    configure the timer, candidate-word count, selected wordpacks, mayor
    eligibility, the token economy (above), and may **bench** a player or
-   **seat** a spectator. With *Lock seating*
-   on, only mods move players between seat and bench. The same settings panel is
-   available (collapsed) during the game, so mods can adjust mid-round.
-   Offline seated players still count for starting, roles, and vote quorum;
-   mods explicitly bench anyone who is not coming back.
+   **seat** a spectator. With *Lock seating* on, only mods move players between
+   seat and bench. The same settings panel is available (collapsed) during the
+   game, so mods can adjust mid-round. Offline seated players still count for
+   starting, roles, and vote quorum; mods explicitly bench anyone who is not
+   coming back.
+   - The creator/owner never transfers. The owner can promote/demote mods; mods
+     can promote others and can demote only people they promoted.
+   - If no owner/promoted mod is online for five minutes, the room lazily elects
+     a temp mod from online players, preferring previous temp mods. Temp mods have
+     full mod powers while no real mod is online. Mods promoted by temp mods are
+     temp mods too.
+   - Players can copy a migrate-device link for themselves; mods can copy one for
+     any player. The link contains a room-scoped token, not the real auth id.
 2. **Mayor picks** — the Mayor is shown N random candidate words from the room's
    selected wordpacks and chooses one secret word. Only the Mayor, Seer, and
    Wolves will know it.

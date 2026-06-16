@@ -43,3 +43,16 @@
     (is (= :villager (get-in l [:players :late :role])))
     (is (true? (get-in l [:players :late :public-role])))
     (is (= :villager (get-in (views/lobby-view l recipient) [:players :late :role])))))
+
+(deftest migration-tokens-are-redacted-by-recipient
+  (let [l (-> (g/new-lobby :owner "t")
+              (g/join :owner "Owner")
+              (g/join :p1 "Alice")
+              (g/join :p2 "Bob")
+              (g/promote-mod :owner :p1))
+        owner-view (views/lobby-view l :owner)
+        mod-view (views/lobby-view l :p1)
+        p2-view (views/lobby-view l :p2)]
+    (is (= (get-in l [:auth->migration :owner]) (get-in owner-view [:you :migration-token])))
+    (is (= (get-in l [:auth->migration :p2]) (get-in mod-view [:players :p2 :migration-token])))
+    (is (nil? (get-in p2-view [:players :p1 :migration-token])))))

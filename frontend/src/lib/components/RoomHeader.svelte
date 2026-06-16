@@ -4,12 +4,16 @@
 	import Apple from '@lucide/svelte/icons/apple';
 	import Users from '@lucide/svelte/icons/users';
 	import Link from '@lucide/svelte/icons/link';
+	import Copy from '@lucide/svelte/icons/copy';
 	import Check from '@lucide/svelte/icons/check';
 
 	let { lobby, room, right }: { lobby: Lobby; room: string; right?: import('svelte').Snippet } =
 		$props();
 
 	let copied = $state(false);
+	let copiedMigration = $state(false);
+
+	const migrationToken = $derived(lobby.you['migration-token']);
 
 	function legacyCopy(text: string): boolean {
 		const textarea = document.createElement('textarea');
@@ -24,19 +28,34 @@
 		return ok;
 	}
 
-	async function copyLink() {
+	async function copyText(label: string, text: string, onCopied: () => void) {
 		try {
 			if (navigator.clipboard?.writeText) {
-				await navigator.clipboard.writeText(location.href);
-			} else if (!legacyCopy(location.href)) {
+				await navigator.clipboard.writeText(text);
+			} else if (!legacyCopy(text)) {
 				throw new Error('copy failed');
 			}
+			onCopied();
+		} catch {
+			prompt(label, text);
+		}
+	}
+
+	async function copyLink() {
+		const url = `${location.origin}/room/${encodeURIComponent(room)}`;
+		await copyText('Copy invite link', url, () => {
 			copied = true;
 			setTimeout(() => (copied = false), 1500);
-		} catch {
-			location.hash = '';
-			prompt('Copy invite link', location.href);
-		}
+		});
+	}
+
+	async function copyMigrationLink() {
+		if (!migrationToken) return;
+		const url = `${location.origin}/room/${encodeURIComponent(room)}?migrate=${encodeURIComponent(migrationToken)}`;
+		await copyText('Copy migrate-device link', url, () => {
+			copiedMigration = true;
+			setTimeout(() => (copiedMigration = false), 1500);
+		});
 	}
 </script>
 
@@ -59,6 +78,11 @@
 		<span class="flex items-center gap-1 text-sm text-mist">
 			<Users class="size-4" />{seatedCount(lobby)}
 		</span>
+		{#if migrationToken}
+			<button onclick={copyMigrationLink} class="rounded-lg p-1.5 text-mist transition hover:bg-frost hover:text-apple-500 dark:hover:bg-white/10" title="Copy migrate-device link" aria-label="Copy migrate-device link">
+				{#if copiedMigration}<Check class="size-4 text-forest" />{:else}<Copy class="size-4" />{/if}
+			</button>
+		{/if}
 		{@render right?.()}
 	</div>
 </header>

@@ -240,3 +240,17 @@ Public role badges are snapshot-driven. Components do not decide whether a role
 should be public; they simply render `player.role` when the redacted lobby view
 contains one. That means hidden dealt roles stay absent, while late mod-seated
 Villagers and end-game roles appear automatically.
+
+## Migration links and moderator controls
+
+Migrate-device links use `/room/<room>?migrate=<token>`. The room page reads the
+query parameter and passes it into `conn.connect`; the WebSocket `:hello` still
+sends the local auth id too, but the server uses the migration token first when
+it is valid for that room. Because the token stays in the URL, refreshes keep the
+same migrated identity.
+
+Migration tokens are treated as bearer secrets in the UI. `RoomHeader` offers a
+copy button for your own token, while `PlayerSeat` shows compact icon-only copy
+buttons for moderators who can see other players' tokens in the redacted lobby
+snapshot. The same player-card action row also sends compact promote/demote
+commands; server-side authorization remains authoritative.

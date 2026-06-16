@@ -26,15 +26,17 @@ class Connection {
 	#ws: WebSocket | null = null;
 	#room = '';
 	#name = '';
+	#migrationToken: string | null = null;
 	#retries = 0;
 	#closedByUs = false;
 	#reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 	/** Open (or re-open) a connection and join `room` as `name`. */
-	connect(room: string, name: string) {
+	connect(room: string, name: string, migrationToken: string | null = null) {
 		if (!browser) return;
 		this.#room = room;
 		this.#name = name;
+		this.#migrationToken = migrationToken;
 		this.#closedByUs = false;
 		this.#open();
 	}
@@ -53,6 +55,7 @@ class Connection {
 				encode({
 					type: 'hello',
 					'auth-id': identity.authId,
+					'migration-token': this.#migrationToken,
 					lobby: this.#room,
 					name: this.#name
 				})
@@ -137,6 +140,7 @@ class Connection {
 		if (this.#reconnectTimer) clearTimeout(this.#reconnectTimer);
 		this.#ws?.close();
 		this.#ws = null;
+		this.#migrationToken = null;
 		this.lobby = null;
 		this.status = 'idle';
 		this.error = null;

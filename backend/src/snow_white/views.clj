@@ -28,17 +28,19 @@
   (#{:word-guessed :out-of-time :out-of-tokens :end-game} (:game-state lobby)))
 
 (defn- redact-player
-  "Strip another player's hidden role unless the recipient may see it."
+  "Strip hidden role/migration facts unless the recipient may see them."
   [lobby recipient auth player]
   (let [reveal-role?
         (or (= auth recipient)                ; your own role
-            (ended? lobby)                     ; post-game reveal
-            (:public-role player)               ; late-seated public Villagers
+            (ended? lobby)                    ; post-game reveal
+            (:public-role player)             ; late-seated public Villagers
             ;; werewolves see each other during the game
             (and (= (get-in lobby [:players recipient :role]) :werewolf)
-                 (= (:role player) :werewolf)))]
+                 (= (:role player) :werewolf)))
+        can-see-migration? (game/can-moderate? lobby recipient)]
     (cond-> (game/decorate-player lobby auth player)
-      (not reveal-role?) (assoc :role nil))))
+      (not reveal-role?) (assoc :role nil)
+      can-see-migration? (assoc :migration-token (get-in lobby [:auth->migration auth])))))
 
 (defn lobby-view
   "Build the redacted lobby map to send to `recipient` (an auth-id)."
@@ -63,6 +65,7 @@
         (assoc :wolf-votes (if reveal-secrets? (:wolf-votes lobby) []))
         ;; tell the recipient their own private facts explicitly for convenience
         (assoc :you {:auth-id recipient
+                     :migration-token (get-in lobby [:auth->migration recipient])
                      :role (get-in lobby [:players recipient :role])
                      :is-mayor (= recipient (:mayor lobby))
                      :can-moderate (game/can-moderate? lobby recipient)

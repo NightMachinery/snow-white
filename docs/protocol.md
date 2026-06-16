@@ -24,6 +24,16 @@ First frame from the client **must** be `:hello`:
 {:type :hello, :auth-id "abc…", :lobby "frost-owl-734", :name "Briar"}
 ```
 
+A device-migration link may send `:migration-token` too:
+
+```clojure
+{:type :hello, :auth-id "local-browser-id", :migration-token "opaque-room-token", :lobby "frost-owl-734", :name "Briar"}
+```
+
+If the migration token is valid for that room, the server uses the migrated
+identity and returns its real auth id in `:hello/ok`. The token is room-scoped and
+never exposes the real auth id in the URL.
+
 The server replies:
 
 ```clojure
@@ -48,7 +58,7 @@ then immediately broadcasts a `:lobby/state` to everyone in the room.
   other and mod-seated late Villagers have a public `:villager` role.
 - `:seer`, `:wolf-votes` — empty/`nil` until end-game. `:werewolves` is shown to Wolves during play and to everyone at end-game.
 - `:you` — a convenience block of your own private facts:
-  `{:auth-id :role :is-mayor :can-moderate :knows-word}`.
+  `{:auth-id :migration-token :role :is-mayor :can-moderate :knows-word}`.
 - `:available-wordpacks` and `:selected-wordpacks` are public room settings.
   Wordpack metadata contains `:id`, `:name`, and `:word-count`, never the hidden
   word list itself.
@@ -63,6 +73,7 @@ The lobby snapshot also includes:
 - `:question-log` — answered and discarded questions in chronological order. Discard entries use `:answer :discard` and `:discarded-by :mayor|:self`.
 - `:vote-result` — end-game vote summary `{:mode :counts :leaders :selected :randomized?}`. Ties are resolved server-side by sampling uniformly among tied leaders.
 - Player `:public-role true` marks a role that is intentionally visible before final reveal, currently used for no-role spectators whom mods seat mid-game as public Villagers.
+- Player `:migration-token` is included only in moderator views; non-mods see only their own token under `:you`.
 
 ## Client → server commands
 
@@ -86,6 +97,8 @@ remain strings; enum-like values such as `:type` and `:answer` are keywords.
 | `:mod/unseat` | `:target` | (mod) Bench a player, freeing their seat and removing them from start/vote participation. |
 | `:mod/seat` | `:target` | (mod) Seat a benched player/spectator. |
 | `:mod/mayor` | `:target` | (mod) Prefer this active player as next Mayor; roles are dealt so the Mayor receives an eligible role when possible. |
+| `:mod/promote` | `:target` | (mod) Promote a player. Real mods create real mods; active temp mods create temp mods. |
+| `:mod/demote` | `:target` | (mod) Demote a mod you are allowed to demote. Owner can demote any promoted/temp mod; other mods can demote only people they promoted. |
 | `:player/rename` | `:name` | Rename yourself in the room, preserving identity and seat. |
 | `:game/start` | — | (mod) Deal roles, pick Mayor, draw words. |
 | `:game/pick` | `:word` | (Mayor) Commit the secret word. |
@@ -100,7 +113,10 @@ remain strings; enum-like values such as `:type` and `:answer` are keywords.
 | `:game/reset` | — | (mod or Mayor) Back to the lobby. |
 
 `(mod)` = requires moderator rights; the server enforces this via `mod-gate` and
-`can-moderate?`, so a forged command from a non-mod is simply ignored.
+`can-moderate?`, so a forged command from a non-mod is simply ignored. Owner is
+immutable. If no owner/promoted real mod is online for five minutes, an online
+player becomes a temp mod with full mod powers; temp-mod promotions create temp
+mods, and all temp mods lose powers when a real mod returns.
 
 ## Invariants the client can rely on
 

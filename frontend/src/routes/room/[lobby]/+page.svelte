@@ -15,18 +15,19 @@
 	import Rules from '$lib/components/Rules.svelte';
 
 	const room = $derived(decodeURIComponent(page.params.lobby ?? ''));
+	const migrationToken = $derived(page.url.searchParams.get('migrate'));
 	let pendingName = $state(identity.name);
 	let nameError = $state('');
 
 	const savedName = $derived(normalizePlayerName(identity.name));
-	const canConnect = $derived(canConnectToRoom(identity.name));
+	const canConnect = $derived(Boolean(migrationToken) || canConnectToRoom(identity.name));
 	const pendingNameOk = $derived(normalizePlayerName(pendingName).length > 0);
 
 	// Connect only after we have a real saved name. Direct invite links should not
 	// join the server as the generic "Player" fallback.
 	$effect(() => {
 		if (!canConnect) return;
-		conn.connect(room, savedName);
+		conn.connect(room, savedName || 'Player', migrationToken);
 		return () => conn.disconnect();
 	});
 

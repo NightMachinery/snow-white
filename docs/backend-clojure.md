@@ -274,3 +274,23 @@ show the Villager badge to everyone without revealing hidden dealt roles.
 The word reveal has a separate rule from role reveal: `views/lobby-view` reveals
 `:chosen-word` to everyone during vote states (`:word-guessed`, `:out-of-time`,
 `:out-of-tokens`) while keeping hidden roles redacted until `:end-game`.
+
+### Auth, migration tokens, and moderation
+
+A browser stores a real `auth-id` in localStorage, but migrate-device links use a
+room-scoped token from `:auth->migration` / `:migration->auth`. During `:hello`,
+`server/on-connect` resolves `:migration-token` against that lobby before
+registering the socket, so the URL never contains the real auth id. Views expose
+the recipient's own migration token under `:you`; only moderator views receive
+other players' migration tokens.
+
+Moderation has three layers:
+
+- `:owner-id` is immutable and is always a real mod.
+- `:mods` are promoted real mods. Real mods can promote others; only the owner or
+  the recorded promoter in `:mod-promoters` can demote a promoted mod.
+- `:temp-mods` are remembered fallback moderators. After five minutes with no
+  real mod online, `refresh-temp-mods` chooses an active temp mod, preferring
+  remembered temp mods. While no real mod is online and `:active-temp-mod` is set,
+  all temp mods have full mod powers. When a real mod returns, `:active-temp-mod`
+  clears but `:temp-mods` remains for the next outage.

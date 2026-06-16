@@ -386,3 +386,79 @@
       (is (= :p1 (get-in l [:vote-result :selected])))
       (is (= #{:p1 :p2} (set (get-in l [:vote-result :leaders]))))
       (is (true? (get-in l [:vote-result :randomized?]))))))
+
+;; --- auth / moderation spec completion --------------------------------------
+
+(deftest migration-tokens-are-room-scoped-and-resolve-auth
+  (let [l (-> (g/new-lobby :owner "t")
+              (g/join :owner "Owner")
+              (g/join :p1 "Alice"))
+        token (get-in l [:auth->migration :p1])]
+    (is (string? token))
+    (is (not= token (name :p1)) "migration token must not be the auth-id")
+    (is (= :p1 (g/auth-for-migration l token)))
+    (is (nil? (g/auth-for-migration (g/new-lobby :other "other") token))
+        "tokens are scoped to the lobby that issued them")))
+
+(deftest owner-and-mod-promotion-rules
+  (let [l (-> (g/new-lobby :owner "t")
+              (g/join :owner "Owner")
+              (g/join :a "Alice")
+              (g/join :b "Bob")
+              (g/join :c "Cara"))
+        l (g/promote-mod l :owner :a)]
+    (is (contains? (:mods l) :a))
+    (is (= :owner (get-in l [:mod-promoters :a])))
+    (testing "mods can promote other real mods"
+      (let [l2 (g/promote-mod l :a :b)]
+        (is (contains? (:mods l2) :b))
+        (is (= :a (get-in l2 [:mod-promoters :b])))))
+    (testing "mods can demote only mods they promoted"
+      (let [l2 (-> l (g/promote-mod :a :b) (g/demote-mod :a :b))]
+        (is (not (contains? (:mods l2) :b))))
+      (let [l2 (-> l (g/promote-mod :a :b) (g/demote-mod :b :a))]
+        (is (contains? (:mods l2) :a))))
+    (testing "owner can demote any mod, but owner cannot be demoted"
+      (let [l2 (-> l (g/promote-mod :a :b) (g/demote-mod :owner :b))]
+        (is (not (contains? (:mods l2) :b))))
+      (let [l2 (-> l (g/promote-mod :a :b) (g/demote-mod :a :owner))]
+        (is (= :owner (:owner-id l2)))))))
+
+(deftest temp-mod-election-and-powers
+  (let [l (-> (g/new-lobby :owner "t")
+              (g/join :owner "Owner")
+              (g/join :a "Alice")
+              (g/join :b "Bob")
+              (g/mark-offline :owner))]
+    (let [waiting (g/refresh-temp-mods l 1000)]
+      (is (nil? (:active-temp-mod waiting)))
+      (is (= 1000 (:no-real-mod-since-ms waiting))))
+    (let [l (-> l
+                (g/refresh-temp-mods 1000)
+                (g/refresh-temp-mods (+ 1000 g/temp-mod-delay-ms)))]
+      (is (some? (:active-temp-mod l)))
+      (is (contains? (:temp-mods l) (:active-temp-mod l)))
+      (is (g/can-moderate? l (:active-temp-mod l)))
+      (testing "temp mod promotions create temp mods with powers, not real mods"
+        (let [temp (:active-temp-mod l)
+              target (first (remove #{temp :owner} (keys (:players l))))
+              l2 (g/promote-mod l temp target)]
+          (is (contains? (:temp-mods l2) target))
+          (is (not (contains? (:mods l2) target)))
+          (is (g/can-moderate? l2 target))))
+      (testing "real mod returning clears active temp but keeps designation"
+        (let [l2 (-> l (g/join :owner "Owner") (g/refresh-temp-mods 2000000))]
+          (is (nil? (:active-temp-mod l2)))
+          (is (seq (:temp-mods l2))))))))
+
+(deftest previous-temp-mods-are-preferred
+  (let [l (-> (g/new-lobby :owner "t")
+              (g/join :owner "Owner")
+              (g/join :a "Alice")
+              (g/join :b "Bob")
+              (g/mark-offline :owner)
+              (assoc :temp-mods #{:b}))
+        l (-> l
+              (g/refresh-temp-mods 1000)
+              (g/refresh-temp-mods (+ 1000 g/temp-mod-delay-ms)))]
+    (is (= :b (:active-temp-mod l)))))

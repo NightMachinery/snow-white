@@ -51,6 +51,7 @@ export interface Player {
 	color: string | null;
 	role: Role; // redacted to null unless you may see it
 	'public-role'?: boolean;
+	'migration-token'?: string | null;
 	mayor: boolean;
 	'is-owner': boolean;
 	'is-mod': boolean;
@@ -62,6 +63,7 @@ export interface Player {
 /** The private facts the server tells *you* about yourself. */
 export interface You {
 	'auth-id': string;
+	'migration-token'?: string | null;
 	role: Role;
 	'is-mayor': boolean;
 	'can-moderate': boolean;

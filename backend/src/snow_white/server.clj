@@ -63,6 +63,10 @@
     (apply f lobby args)
     lobby))
 
+(defn- refresh-temp-mods!
+  [lobby-name]
+  (reg/update-lobby! lobby-name game/refresh-temp-mods (System/currentTimeMillis)))
+
 (defn handle
   "Apply one client command to the lobby it belongs to. `ch` is the sending
   channel; `msg` is a decoded transit map. Returns the lobby-name to broadcast
@@ -70,6 +74,7 @@
   [ch {:keys [type] :as msg}]
   (let [{:keys [auth-id lobby]} (reg/conn-info ch)]
     (when (and auth-id lobby (reg/lobby-exists? lobby))
+      (refresh-temp-mods! lobby)
       (let [me auth-id]
         (case type
           ;; --- seating ---
@@ -100,6 +105,8 @@
           :mod/seat     (reg/update-lobby! lobby mod-gate me game/mod-seat (:target msg))
           :mod/unseat   (reg/update-lobby! lobby mod-gate me game/mod-unseat (:target msg))
           :mod/mayor    (reg/update-lobby! lobby mod-gate me game/mod-set-preferred-mayor (:target msg))
+          :mod/promote  (reg/update-lobby! lobby game/promote-mod me (:target msg))
+          :mod/demote   (reg/update-lobby! lobby game/demote-mod me (:target msg))
 
           ;; --- player identity ---
           :player/rename (reg/update-lobby! lobby game/rename-player me (:name msg))
@@ -132,18 +139,22 @@
 
 (defn- on-connect
   "First message on a socket must be {:type :hello :auth-id .. :lobby .. :name ..}.
-  We attach the connection, join the player, and send initial state."
-  [ch {:keys [auth-id lobby name]}]
-  (let [auth-id (or auth-id (ids/auth-id))]
-    (if (reg/lobby-exists? lobby)
-      (do
-        (reg/register-conn! ch auth-id lobby)
-        (reg/mark-occupied! lobby)            ; cancel any pending retention TTL
-        (reg/update-lobby! lobby game/join auth-id (or name "Player"))
-        ;; tell the client its resolved auth-id (in case the server minted one)
-        (http/send! ch (->transit {:type :hello/ok :auth-id auth-id}))
-        (broadcast! lobby))
-      (send-error! ch "lobby not found"))))
+  Optional :migration-token is a room-scoped bearer token that resolves to the
+  real auth-id without exposing it in the URL."
+  [ch {:keys [auth-id migration-token lobby name]}]
+  (if (reg/lobby-exists? lobby)
+    (let [a (reg/get-lobby-atom lobby)
+          migrated-auth (when (and a migration-token)
+                          (game/auth-for-migration @a migration-token))
+          auth-id (or migrated-auth auth-id (ids/auth-id))]
+      (reg/register-conn! ch auth-id lobby)
+      (reg/mark-occupied! lobby)            ; cancel any pending retention TTL
+      (reg/update-lobby! lobby game/join auth-id (or name "Player"))
+      (refresh-temp-mods! lobby)
+      ;; tell the client its resolved auth-id (in case the server minted/migrated one)
+      (http/send! ch (->transit {:type :hello/ok :auth-id auth-id}))
+      (broadcast! lobby))
+    (send-error! ch "lobby not found")))
 
 (defn ws-handler [req]
   (http/as-channel
@@ -162,6 +173,7 @@
           ;; mark offline only if no other socket holds this identity
           (when-not (reg/auth-still-online? lobby auth-id)
             (reg/update-lobby! lobby game/mark-offline auth-id))
+          (refresh-temp-mods! lobby)
           ;; An empty lobby is no longer destroyed immediately — instead we start
           ;; its retention clock, so the room survives refreshes, brief drops, and
           ;; idle gaps. The background reaper deletes it only after it has stayed

@@ -6,6 +6,10 @@
 	import UserMinus from '@lucide/svelte/icons/user-minus';
 	import UserPlus from '@lucide/svelte/icons/user-plus';
 	import Star from '@lucide/svelte/icons/star';
+	import Copy from '@lucide/svelte/icons/copy';
+	import Check from '@lucide/svelte/icons/check';
+	import ShieldPlus from '@lucide/svelte/icons/shield-plus';
+	import ShieldMinus from '@lucide/svelte/icons/shield-minus';
 	import { roleLabel } from '$lib/game';
 
 	let {
@@ -16,7 +20,9 @@
 		onpick,
 		onbench,
 		onseat,
-		onmayor
+		onmayor,
+		onpromote,
+		ondemote
 	}: {
 		player: Player;
 		lobby: Lobby;
@@ -26,11 +32,15 @@
 		onbench?: (authId: string) => void;
 		onseat?: (authId: string) => void;
 		onmayor?: (authId: string) => void;
+		onpromote?: (authId: string) => void;
+		ondemote?: (authId: string) => void;
 	} = $props();
 
 	const isYou = $derived(player['auth-id'] === lobby.you['auth-id']);
 	const initial = $derived((player['display-name'] || '?').charAt(0).toUpperCase());
-	const hasActions = $derived(Boolean(onbench || onseat || onmayor));
+	const migrationToken = $derived(player['migration-token'] ?? (isYou ? lobby.you['migration-token'] : null));
+	const hasActions = $derived(Boolean(onbench || onseat || onmayor || onpromote || ondemote || migrationToken));
+	let copiedMigration = $state(false);
 	const cardClass = $derived([
 		'flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition',
 		selectable && 'cursor-pointer hover:ring-2 hover:ring-apple-400',
@@ -40,6 +50,35 @@
 
 	function pick() {
 		onpick?.(player['auth-id']);
+	}
+
+	function legacyCopy(text: string): boolean {
+		const textarea = document.createElement('textarea');
+		textarea.value = text;
+		textarea.setAttribute('readonly', '');
+		textarea.style.position = 'fixed';
+		textarea.style.left = '-9999px';
+		document.body.appendChild(textarea);
+		textarea.select();
+		const ok = document.execCommand('copy');
+		document.body.removeChild(textarea);
+		return ok;
+	}
+
+	async function copyMigration() {
+		if (!migrationToken) return;
+		const url = `${location.origin}/room/${encodeURIComponent(lobby.name)}?migrate=${encodeURIComponent(migrationToken)}`;
+		try {
+			if (navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(url);
+			} else if (!legacyCopy(url)) {
+				throw new Error('copy failed');
+			}
+			copiedMigration = true;
+			setTimeout(() => (copiedMigration = false), 1500);
+		} catch {
+			prompt('Copy migrate-device link', url);
+		}
 	}
 </script>
 
@@ -67,10 +106,25 @@
 		</span>
 	</span>
 	{#if hasActions}
-		<span class="flex shrink-0 gap-1" role="group" aria-label="Moderator actions">
+		<span class="flex shrink-0 gap-1" role="group" aria-label="Player actions">
+			{#if migrationToken}
+				<button type="button" onclick={copyMigration} class="rounded-lg p-1.5 text-mist transition hover:bg-frost hover:text-apple-500 dark:hover:bg-white/10" aria-label="Copy migrate-device link" title="Copy migrate-device link">
+					{#if copiedMigration}<Check class="size-4 text-forest" />{:else}<Copy class="size-4" />{/if}
+				</button>
+			{/if}
 			{#if onmayor}
 				<button type="button" onclick={() => onmayor?.(player['auth-id'])} class="rounded-lg p-1.5 text-mist transition hover:bg-frost hover:text-apple-500 dark:hover:bg-white/10" aria-label="Choose as Mayor">
 					<Star class={['size-4', lobby['preferred-mayor'] === player['auth-id'] && 'fill-apple-500 text-apple-500']} />
+				</button>
+			{/if}
+			{#if onpromote && !player['is-owner'] && !player['is-mod'] && !player['is-temp-mod']}
+				<button type="button" onclick={() => onpromote?.(player['auth-id'])} class="rounded-lg p-1.5 text-mist transition hover:bg-frost hover:text-forest dark:hover:bg-white/10" aria-label="Promote moderator" title="Promote moderator">
+					<ShieldPlus class="size-4" />
+				</button>
+			{/if}
+			{#if ondemote && !player['is-owner'] && (player['is-mod'] || player['is-temp-mod'])}
+				<button type="button" onclick={() => ondemote?.(player['auth-id'])} class="rounded-lg p-1.5 text-mist transition hover:bg-frost hover:text-apple-500 dark:hover:bg-white/10" aria-label="Demote moderator" title="Demote moderator">
+					<ShieldMinus class="size-4" />
 				</button>
 			{/if}
 			{#if onbench && player.seat && !player.spectator}

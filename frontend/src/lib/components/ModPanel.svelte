@@ -7,6 +7,8 @@
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import UserMinus from '@lucide/svelte/icons/user-minus';
 	import UserPlus from '@lucide/svelte/icons/user-plus';
+	import ShieldPlus from '@lucide/svelte/icons/shield-plus';
+	import ShieldMinus from '@lucide/svelte/icons/shield-minus';
 
 	// `compact` (mid-game) renders the panel collapsed behind a disclosure button;
 	// the lobby renders it always-open. The same controls are used in both places.
@@ -46,6 +48,12 @@
 	}
 	function seat(target: string) {
 		conn.send({ type: 'mod/seat', target });
+	}
+	function promote(target: string) {
+		conn.send({ type: 'mod/promote', target });
+	}
+	function demote(target: string) {
+		conn.send({ type: 'mod/demote', target });
 	}
 
 	const seated = $derived(seatedPlayers(lobby));
@@ -233,23 +241,29 @@
 						{#each seated as p (p['auth-id'])}
 							<div class="flex items-center justify-between gap-2">
 								<span class="truncate" dir="auto">{p['display-name']}</span>
-								<button
-									onclick={() => unseat(p['auth-id'])}
-									class="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs text-mist transition hover:bg-frost dark:hover:bg-white/10"
-								>
-									<UserMinus class="size-3.5" /> Bench
-								</button>
+								<div class="flex shrink-0 gap-1">
+									{#if !p['is-owner'] && !p['is-mod'] && !p['is-temp-mod']}
+										<button onclick={() => promote(p['auth-id'])} class="rounded-lg px-2 py-1 text-xs text-forest transition hover:bg-frost dark:hover:bg-white/10" aria-label="Promote moderator"><ShieldPlus class="size-3.5" /></button>
+									{/if}
+									{#if !p['is-owner'] && (p['is-mod'] || p['is-temp-mod'])}
+										<button onclick={() => demote(p['auth-id'])} class="rounded-lg px-2 py-1 text-xs text-apple-500 transition hover:bg-frost dark:hover:bg-white/10" aria-label="Demote moderator"><ShieldMinus class="size-3.5" /></button>
+									{/if}
+									<button onclick={() => unseat(p['auth-id'])} class="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-mist transition hover:bg-frost dark:hover:bg-white/10"><UserMinus class="size-3.5" /> Bench</button>
+								</div>
 							</div>
 						{/each}
 						{#each benched as p (p['auth-id'])}
 							<div class="flex items-center justify-between gap-2 text-mist">
 								<span class="truncate" dir="auto">{p['display-name']}</span>
-								<button
-									onclick={() => seat(p['auth-id'])}
-									class="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs text-apple-500 transition hover:bg-apple-50 dark:hover:bg-white/5"
-								>
-									<UserPlus class="size-3.5" /> Seat
-								</button>
+								<div class="flex shrink-0 gap-1">
+									{#if !p['is-owner'] && !p['is-mod'] && !p['is-temp-mod']}
+										<button onclick={() => promote(p['auth-id'])} class="rounded-lg px-2 py-1 text-xs text-forest transition hover:bg-apple-50 dark:hover:bg-white/5" aria-label="Promote moderator"><ShieldPlus class="size-3.5" /></button>
+									{/if}
+									{#if !p['is-owner'] && (p['is-mod'] || p['is-temp-mod'])}
+										<button onclick={() => demote(p['auth-id'])} class="rounded-lg px-2 py-1 text-xs text-apple-500 transition hover:bg-apple-50 dark:hover:bg-white/5" aria-label="Demote moderator"><ShieldMinus class="size-3.5" /></button>
+									{/if}
+									<button onclick={() => seat(p['auth-id'])} class="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-apple-500 transition hover:bg-apple-50 dark:hover:bg-white/5"><UserPlus class="size-3.5" /> Seat</button>
+								</div>
 							</div>
 						{/each}
 					</div>
