@@ -93,6 +93,7 @@
    :mayor-eligibility {:villager true :seer false :werewolf true}
    :timer-minutes    1
    :pick-count       2
+   :custom-word-mode false
    ;; --- configurable rules / economy (mod-settable) ---
    :max-tokens       start-tokens       ; configured yes/no budget size
    :max-maybe-tokens start-maybe-tokens ; configured maybe budget size
@@ -424,6 +425,14 @@
 (defn set-pick-count [lobby n]
   (assoc lobby :pick-count (max 1 (long n))))
 
+(defn set-custom-word-mode
+  "Toggle whether the Mayor types any word instead of choosing sampled words.
+  Lobby-only so an in-progress round keeps its word source fixed."
+  [lobby enabled]
+  (if (= :lobby (:game-state lobby))
+    (assoc lobby :custom-word-mode (boolean enabled))
+    lobby))
+
 (defn- get-either
   "Read keyword or string keys from nested Transit maps. The JS client sends
   top-level command keys as keywords, but nested object keys may arrive as
@@ -584,22 +593,29 @@
                :vote-result nil
                :round-started-at-ms nil
                :round-deadline-ms nil
-               :words (words/random-words (:pick-count lobby) selected-wordpacks))))))
+               :words (if (:custom-word-mode lobby)
+                        []
+                        (words/random-words (:pick-count lobby) selected-wordpacks)))))))
 
 (defn mayor-pick
-  "Mayor commits to the secret word and the question round begins."
+  "Mayor commits to the secret word and the question round begins. In normal
+  mode the word must be one of the sampled candidates; in custom-word mode the
+  Mayor may enter any non-blank trimmed word or phrase."
   ([lobby auth-id word]
    (mayor-pick lobby auth-id word (System/currentTimeMillis)))
   ([lobby auth-id word now-ms]
-   (if (and (= (:game-state lobby) :mayor-pick)
-            (= auth-id (:mayor lobby))
-            (some #{word} (:words lobby)))
-     (assoc lobby
-            :chosen-word word
-            :game-state :question-round
-            :round-started-at-ms now-ms
-            :round-deadline-ms (+ now-ms (* (:timer-minutes lobby) 60 1000)))
-     lobby)))
+   (let [word (str/trim (str word))]
+     (if (and (= (:game-state lobby) :mayor-pick)
+              (= auth-id (:mayor lobby))
+              (seq word)
+              (or (:custom-word-mode lobby)
+                  (some #{word} (:words lobby))))
+       (assoc lobby
+              :chosen-word word
+              :game-state :question-round
+              :round-started-at-ms now-ms
+              :round-deadline-ms (+ now-ms (* (:timer-minutes lobby) 60 1000)))
+       lobby))))
 
 (defn- normalize-guess [s]
   (-> (str (or s ""))

@@ -211,6 +211,32 @@
         l (reduce #(g/village-vote %1 %2 :p0) l voters)]
     (is (= :end-game (:game-state l)))))
 
+
+(deftest custom-word-mode-uses-mayor-entered-word
+  (let [l (g/new-lobby :p0 "test")]
+    (is (false? (:custom-word-mode l))))
+  (let [l (-> (lobby-with-players 4)
+              (g/set-custom-word-mode true)
+              g/start-game)
+        mayor (:mayor l)]
+    (is (true? (:custom-word-mode l)))
+    (is (= [] (:words l)) "custom mode does not sample wordpacks")
+    (is (= :mayor-pick (:game-state l)))
+    (let [picked (g/mayor-pick l mayor "  A Secret Phrase  " 1000)]
+      (is (= :question-round (:game-state picked)))
+      (is (= "A Secret Phrase" (:chosen-word picked))))
+    (is (= :mayor-pick (:game-state (g/mayor-pick l mayor "   " 1000)))
+        "blank custom words are rejected")))
+
+(deftest normal-wordpack-mode-still-requires-candidate-word
+  (let [l (-> (lobby-with-players 4) g/start-game)
+        mayor (:mayor l)]
+    (is (= :mayor-pick (:game-state (g/mayor-pick l mayor "not in the list" 1000))))))
+
+(deftest custom-word-mode-is-lobby-only-setting
+  (let [l (-> (lobby-with-players 4) g/start-game)]
+    (is (false? (:custom-word-mode (g/set-custom-word-mode l true))))))
+
 ;; --- wordpacks --------------------------------------------------------------
 
 (deftest new-lobby-defaults-to-snow-white-wordpack

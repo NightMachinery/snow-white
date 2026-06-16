@@ -59,7 +59,7 @@ then immediately broadcasts a `:lobby/state` to everyone in the room.
 - `:seer`, `:wolf-votes` — empty/`nil` until end-game. `:werewolves` is shown to Wolves during play and to everyone at end-game.
 - `:you` — a convenience block of your own private facts:
   `{:auth-id :migration-token :role :is-mayor :can-moderate :knows-word}`.
-- `:available-wordpacks` and `:selected-wordpacks` are public room settings.
+- `:available-wordpacks`, `:selected-wordpacks`, and `:custom-word-mode` are public room settings.
   Wordpack metadata contains `:id`, `:name`, and `:word-count`, never the hidden
   word list itself.
 
@@ -68,6 +68,7 @@ then immediately broadcasts a `:lobby/state` to everyone in the room.
 The lobby snapshot also includes:
 
 - `:preferred-mayor` — auth-id a mod picked as preferred next Mayor, or `nil`.
+- `:custom-word-mode` — when true, Mayor types the word and `:words` is empty for the round.
 - `:max-discard-tokens` / `:discard-tokens` — configured and live Mayor discard budget.
 - `:round-started-at-ms` / `:round-deadline-ms` — server-anchored timer data; clients count down from the deadline instead of resetting on every snapshot.
 - `:question-log` — answered and discarded questions in chronological order. Discard entries use `:answer :discard` and `:discarded-by :mayor|:self`.
@@ -89,7 +90,8 @@ remain strings; enum-like values such as `:type` and `:answer` are keywords.
 | `:seat/take` | `:seat?` `:color?` | Sit down (first free seat if omitted). Blocked for non-mods when `:lock-seating`. |
 | `:seat/spectate` | — | Leave your seat to watch. Blocked for non-mods when `:lock-seating`. |
 | `:settings/timer` | `:minutes` | (mod) Set round length. |
-| `:settings/pick-count` | `:pick-count` | (mod) How many candidate words. |
+| `:settings/pick-count` | `:pick-count` | (mod) How many candidate words when wordpacks are enabled. |
+| `:settings/custom-word-mode` | `:enabled` | (mod, lobby only) Let the Mayor type any non-blank word instead of choosing sampled wordpack candidates. |
 | `:settings/eligibility` | `:roles {…}` | (mod) Which roles can be Mayor. |
 | `:settings/budget` | `:budget {:tokens? :maybe-tokens? :discard-tokens?}` | (mod) Set answer, maybe, and discard budget sizes. |
 | `:settings/rules` | `:rules {…}` | (mod) Toggle `:shared-maybe-pool` `:soft-costs` `:one-at-a-time` `:lock-seating`. |
@@ -100,8 +102,8 @@ remain strings; enum-like values such as `:type` and `:answer` are keywords.
 | `:mod/promote` | `:target` | (mod) Promote a player. Real mods create real mods; active temp mods create temp mods. |
 | `:mod/demote` | `:target` | (mod) Demote a mod you are allowed to demote. Owner can demote any promoted/temp mod; other mods can demote only people they promoted. |
 | `:player/rename` | `:name` | Rename yourself in the room, preserving identity and seat. |
-| `:game/start` | — | (mod) Deal roles, pick Mayor, draw words. |
-| `:game/pick` | `:word` | (Mayor) Commit the secret word. |
+| `:game/start` | — | (mod) Deal roles, pick Mayor, and either draw wordpack candidates or enter custom-word mode. |
+| `:game/pick` | `:word` | (Mayor) Commit the secret word; must be sampled in normal mode, any non-blank trimmed word in custom-word mode. |
 | `:game/ask` | `:text` | Ask a yes/no question (one pending per player; blocked if `:one-at-a-time` and a question is queued). |
 | `:game/edit` | `:text` | Revise the text of *your own* pending question. |
 | `:game/discard-own` | — | Withdraw your own unanswered pending question for free; it remains in the question log. |

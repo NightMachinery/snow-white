@@ -95,6 +95,7 @@
           ;; --- settings (mod-gated) ---
           :settings/timer       (reg/update-lobby! lobby mod-gate me game/set-timer (:minutes msg))
           :settings/pick-count  (reg/update-lobby! lobby mod-gate me game/set-pick-count (:pick-count msg))
+          :settings/custom-word-mode (reg/update-lobby! lobby mod-gate me game/set-custom-word-mode (:enabled msg))
           :settings/eligibility (reg/update-lobby! lobby mod-gate me game/set-mayor-eligibility (:roles msg))
           :settings/budget      (reg/update-lobby! lobby mod-gate me game/set-budget (:budget msg))
           :settings/discard-budget (reg/update-lobby! lobby mod-gate me game/set-budget {:discard-tokens (:discard-tokens msg)})

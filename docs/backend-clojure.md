@@ -294,3 +294,10 @@ Moderation has three layers:
   remembered temp mods. While no real mod is online and `:active-temp-mod` is set,
   all temp mods have full mod powers. When a real mod returns, `:active-temp-mod`
   clears but `:temp-mods` remains for the next outage.
+
+Custom-word mode is a lobby setting (`:custom-word-mode`). In normal mode,
+`start-game` samples `:words` from the selected wordpacks and `mayor-pick` only
+accepts one of those candidates. In custom mode, `start-game` leaves `:words`
+empty and `mayor-pick` accepts any non-blank trimmed string from the Mayor. This
+keeps the state machine unchanged (`:mayor-pick` still gates the transition into
+`:question-round`) while swapping only the word source.

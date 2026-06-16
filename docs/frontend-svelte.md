@@ -254,3 +254,9 @@ copy button for your own token, while `PlayerSeat` shows compact icon-only copy
 buttons for moderators who can see other players' tokens in the redacted lobby
 snapshot. The same player-card action row also sends compact promote/demote
 commands; server-side authorization remains authoritative.
+
+Custom-word mode is also snapshot-driven. `ModPanel` toggles
+`settings/custom-word-mode`; when enabled it disables the wordpack/pick-count
+controls because those settings are ignored for the next round. `MayorPick` then
+switches from candidate buttons to a simple text input and still sends the same
+`game/pick` command with a `word` string.

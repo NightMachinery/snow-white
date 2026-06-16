@@ -28,6 +28,9 @@
 	function setPick(n: number) {
 		conn.send({ type: 'settings/pick-count', 'pick-count': n });
 	}
+	function setCustomWordMode(enabled: boolean) {
+		conn.send({ type: 'settings/custom-word-mode', enabled });
+	}
 	function toggleRole(role: 'villager' | 'seer' | 'werewolf') {
 		conn.send({ type: 'settings/eligibility', roles: { ...elig, [role]: !elig[role] } });
 	}
@@ -59,6 +62,7 @@
 	const seated = $derived(seatedPlayers(lobby));
 	const benched = $derived(bystanders(lobby));
 	const selectedWordpacks = $derived(new Set(lobby['selected-wordpacks']));
+	const customWordMode = $derived(lobby['custom-word-mode']);
 </script>
 
 <div class="rounded-2xl border border-frost dark:border-white/10">
@@ -90,12 +94,33 @@
 				</select>
 			</label>
 
-			<!-- Word choices (lobby only — fixed once a game starts) -->
+			<!-- Word source (lobby only — fixed once a game starts) -->
 			{#if !inGame}
 				<label class="flex items-center justify-between gap-2">
+					<span class="text-mist">Mayor writes custom word</span>
+					<button
+						role="switch"
+						aria-checked={customWordMode}
+						aria-label="Mayor writes custom word"
+						disabled={!canMod}
+						onclick={() => setCustomWordMode(!customWordMode)}
+						class={[
+							'relative h-5 w-9 shrink-0 rounded-full transition disabled:opacity-60',
+							customWordMode ? 'bg-apple-500' : 'bg-frost dark:bg-white/15'
+						]}
+					>
+						<span
+							class={[
+								'absolute top-0.5 size-4 rounded-full bg-white transition-all',
+								customWordMode ? 'left-[1.125rem]' : 'left-0.5'
+							]}
+						></span>
+					</button>
+				</label>
+				<label class={["flex items-center justify-between gap-2", customWordMode && "opacity-50"]}>
 					<span class="text-mist">Word choices</span>
 					<select
-						disabled={!canMod}
+						disabled={!canMod || customWordMode}
 						value={lobby['pick-count']}
 						onchange={(e) => setPick(Number(e.currentTarget.value))}
 						class="rounded-lg border border-frost bg-snow px-2 py-1 disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
@@ -107,7 +132,7 @@
 
 			<!-- Wordpacks (lobby only — fixed once a game starts) -->
 			{#if !inGame}
-				<div class="flex flex-col gap-2 border-t border-frost/70 pt-2 dark:border-white/5">
+				<div class={["flex flex-col gap-2 border-t border-frost/70 pt-2 dark:border-white/5", customWordMode && "opacity-50"]}>
 					<div class="flex items-baseline justify-between gap-2">
 						<span class="text-mist">Wordpacks</span>
 						<span class="text-xs text-mist">{lobby['selected-wordpacks'].length} selected</span>
@@ -125,7 +150,7 @@
 								<input
 									type="checkbox"
 									checked={selected}
-									disabled={!canMod || (selected && lobby['selected-wordpacks'].length === 1)}
+									disabled={!canMod || customWordMode || (selected && lobby['selected-wordpacks'].length === 1)}
 									onchange={() => toggleWordpack(pack.id)}
 									class="size-4 rounded border-frost text-apple-500 disabled:opacity-60"
 								/>

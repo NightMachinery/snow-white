@@ -90,6 +90,7 @@ export interface Lobby {
 	'mayor-eligibility': { villager: boolean; seer: boolean; werewolf: boolean };
 	'timer-minutes': number;
 	'pick-count': number;
+	'custom-word-mode': boolean;
 	// configurable economy / flow rules (mod-settable)
 	'max-tokens': number;
 	'max-maybe-tokens': number;

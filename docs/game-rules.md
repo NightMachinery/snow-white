@@ -22,7 +22,7 @@ eligible; Villagers and Werewolves are eligible by default, Seers are not). The 
 ## Flow
 
 1. **Lobby** — players take seats (up to 20 seated participants; others spectate). Mods
-   configure the timer, candidate-word count, selected wordpacks, mayor
+   configure the timer, candidate-word count, selected wordpacks or custom-word mode, mayor
    eligibility, the token economy (above), and may **bench** a player or
    **seat** a spectator. With *Lock seating* on, only mods move players between
    seat and bench. The same settings panel is available (collapsed) during the
@@ -37,9 +37,10 @@ eligible; Villagers and Werewolves are eligible by default, Seers are not). The 
      temp mods too.
    - Players can copy a migrate-device link for themselves; mods can copy one for
      any player. The link contains a room-scoped token, not the real auth id.
-2. **Mayor picks** — the Mayor is shown N random candidate words from the room's
-   selected wordpacks and chooses one secret word. Only the Mayor, Seer, and
-   Wolves will know it.
+2. **Mayor picks** — normally the Mayor is shown N random candidate words from
+   the room's selected wordpacks and chooses one secret word. If mods enabled
+   *Mayor writes custom word* in the lobby, the Mayor instead types any non-blank
+   word or phrase. Only the Mayor, Seer, and Wolves will know it.
 3. **Question round** — players ask yes/no questions. The Mayor answers each
    with **Yes / No / Maybe / So close / Way off / Correct**, or discards it.
    - Each player may have **one pending (unanswered) question at a time** and can
