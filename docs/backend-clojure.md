@@ -254,8 +254,12 @@ asking the Svelte client to infer them:
   and discards. The old per-player token buckets are still useful for role reads,
   but the log is the replayable story shown during voting and at end-game.
 - `:round-started-at-ms` and `:round-deadline-ms` are set exactly once when the
-  Mayor picks the word. Every later snapshot reuses the same deadline, so a UI
-  re-render or Mayor answer cannot accidentally restart the timer.
+  Mayor picks the word. `:vote-started-at-ms` and `:vote-deadline-ms` do the same
+  for the fixed five-minute voting window. Every later snapshot reuses the same
+  deadlines, so a UI re-render cannot accidentally restart a timer.
+- Live votes are stored as voter→target maps. That lets a refreshed client recover
+  its own selected target from `:you`, and lets a voter change their mind by
+  replacing their previous map entry until voting resolves.
 - `:vote-result` stores the vote counts, tied leaders, selected target, and
   whether a random tiebreak happened. This is important because random choices
   should happen once on the server; clients only display the recorded result.
@@ -273,7 +277,9 @@ show the Villager badge to everyone without revealing hidden dealt roles.
 
 The word reveal has a separate rule from role reveal: `views/lobby-view` reveals
 `:chosen-word` to everyone during vote states (`:word-guessed`, `:out-of-time`,
-`:out-of-tokens`) while keeping hidden roles redacted until `:end-game`.
+`:out-of-tokens`). Hidden roles remain redacted until `:end-game`, except that
+Werewolf roles are intentionally public during `:word-guessed` because that stage
+is the Wolves' Seer hunt.
 
 ### Auth, migration tokens, and moderation
 

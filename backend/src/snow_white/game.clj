@@ -34,6 +34,10 @@
 (def start-discard-tokens 5) ; shared Mayor discard budget
 (def temp-mod-delay-ms (* 5 60 1000))
 
+(def vote-duration-ms (* 5 60 1000))
+
+(declare start-vote-clock)
+
 (def seat-ids
   "Stable seat keywords :seat-1 .. :seat-20."
   (mapv #(keyword (str "seat-" (inc %))) (range max-active-players)))
@@ -127,8 +131,10 @@
    :discard-tokens   start-discard-tokens
    :round-started-at-ms nil
    :round-deadline-ms nil
-   :village-votes    []                ; auth-ids voted for (find the wolf)
-   :wolf-votes       []                ; auth-ids voted for (find the seer)
+   :vote-started-at-ms nil
+   :vote-deadline-ms nil
+   :village-votes    {}                ; voter auth-id -> target auth-id (find the wolf)
+   :wolf-votes       {}                ; voter auth-id -> target auth-id (find the seer)
    :vote-result      nil
    :winner           nil})
 
@@ -617,9 +623,13 @@
                :maybe-tokens (:max-maybe-tokens lobby start-maybe-tokens)
                :discard-tokens (:max-discard-tokens lobby start-discard-tokens)
                :question-log []
+               :village-votes {}
+               :wolf-votes {}
                :vote-result nil
                :round-started-at-ms nil
                :round-deadline-ms nil
+               :vote-started-at-ms nil
+               :vote-deadline-ms nil
                :words (if (:custom-word-mode lobby)
                         []
                         (words/random-words (:pick-count lobby) selected-wordpacks)))))))
@@ -688,7 +698,8 @@
             (log-question q :correct {:auto? true})
             (assoc :correct q
                    :game-state (if (= :classic (:game-mode lobby)) :end-game :word-guessed)
-                   :winner (when (= :classic (:game-mode lobby)) :players)))
+                   :winner (when (= :classic (:game-mode lobby)) :players))
+            (cond-> (not= :classic (:game-mode lobby)) start-vote-clock))
         (update lobby :questions conj q))
       lobby)))
 
@@ -754,9 +765,10 @@
                       (log-question q answer {})
                       drop-current-question)
             lobby (case answer
-                    :correct  (assoc lobby :correct q
-                                      :game-state (if (= :classic (:game-mode lobby)) :end-game :word-guessed)
-                                      :winner (if (= :classic (:game-mode lobby)) :players (:winner lobby)))
+                    :correct  (cond-> (assoc lobby :correct q
+                                                    :game-state (if (= :classic (:game-mode lobby)) :end-game :word-guessed)
+                                                    :winner (if (= :classic (:game-mode lobby)) :players (:winner lobby)))
+                                (not= :classic (:game-mode lobby)) start-vote-clock)
                     :so-close (assoc lobby :so-close q)
                     :way-off  (assoc lobby :way-off q)
                     lobby)
@@ -766,8 +778,59 @@
                  (<= (:tokens lobby) 0))
           (if (= :classic (:game-mode lobby))
             (assoc lobby :game-state :end-game :winner :word)
-            (assoc lobby :game-state :out-of-tokens))
+            (-> lobby (assoc :game-state :out-of-tokens) start-vote-clock))
           lobby)))))
+
+
+(defn- bare-question [entry]
+  (dissoc entry :answer :discarded-by :auto?))
+
+(defn- remove-one-question [qs q]
+  (let [removed? (volatile! false)]
+    (mapv (fn [candidate]
+            (if (and (not @removed?) (= candidate q))
+              (do (vreset! removed? true) ::remove)
+              candidate))
+          qs)))
+
+(defn- without-marker [xs]
+  (vec (remove #{::remove} xs)))
+
+(defn- refund-answer [lobby answer]
+  (case answer
+    (:yes :no) (update lobby :tokens inc)
+    :maybe (if (:shared-maybe-pool lobby)
+             (update lobby :tokens inc)
+             (update lobby :maybe-tokens inc))
+    (:so-close :way-off) (if (:soft-costs lobby)
+                           (update lobby :tokens inc)
+                           lobby)
+    :discard (update lobby :discard-tokens inc)
+    lobby))
+
+(defn edit-last-answer
+  "Mayor-only correction while still in the question round. The last Mayor answer
+  is removed from the public log, refunded, and restored to the front of the
+  queue; the current head question moves behind it."
+  [lobby auth-id]
+  (let [entry (last (:answered lobby))
+        q (when entry (bare-question entry))]
+    (if (and (= (:game-state lobby) :question-round)
+             (= auth-id (:mayor lobby))
+             entry
+             (not= :self (:discarded-by entry)))
+      (let [answer (:answer entry)
+            asker (:auth-id entry)]
+        (-> lobby
+            (update :answered pop)
+            (update :question-log pop)
+            (refund-answer answer)
+            (update-in [:players asker :tokens answer]
+                       (fn [qs] (-> (or qs []) (remove-one-question q) without-marker)))
+            (update :questions (fn [qs] (vec (cons q qs))))
+            (update :so-close #(when (not= % q) %))
+            (update :way-off #(when (not= % q) %))))
+      lobby)))
 
 (defn discard-own-question
   "Let a player withdraw their own unanswered question for free, keeping it in the log."
@@ -781,30 +844,52 @@
         lobby))
     lobby))
 
+(defn- start-vote-clock
+  ([lobby] (start-vote-clock lobby (System/currentTimeMillis)))
+  ([lobby now-ms]
+   (assoc lobby
+          :vote-started-at-ms now-ms
+          :vote-deadline-ms (+ now-ms vote-duration-ms))))
+
 (defn timeout
   "Timer expired during the question round."
   [lobby]
   (if (= (:game-state lobby) :question-round)
     (if (= :classic (:game-mode lobby))
       (assoc lobby :game-state :end-game :winner :word)
-      (assoc lobby :game-state :out-of-time))
+      (-> lobby
+          (assoc :game-state :out-of-time)
+          start-vote-clock))
     lobby))
+
+(defn- vote-targets [votes]
+  (if (map? votes) (vals votes) votes))
 
 (defn- store-vote-result [lobby mode]
   (case mode
-    :village (assoc lobby :vote-result (roles/vote-result :village (:village-votes lobby)))
-    :wolf    (assoc lobby :vote-result (roles/vote-result :wolf (:wolf-votes lobby)))))
+    :village (assoc lobby :vote-result (roles/vote-result :village (vote-targets (:village-votes lobby))))
+    :wolf    (assoc lobby :vote-result (roles/vote-result :wolf (vote-targets (:wolf-votes lobby))))))
+
+(defn- seated-auths [lobby]
+  (->> (:players lobby)
+       (filter (fn [[_ p]] (seated? p)))
+       (map key)))
+
+(defn- village-voters [lobby]
+  (remove (set (:werewolves lobby)) (seated-auths lobby)))
 
 (defn village-vote
-  "A seated player votes for a suspected wolf (used when the word was NOT
-  guessed). When everyone seated has voted, resolve the end."
+  "A seated non-wolf votes for a suspected wolf (used when the word was NOT
+  guessed). A later vote from the same voter replaces their earlier target. When
+  every eligible seated non-wolf has voted, resolve the end."
   [lobby voter-auth target-auth]
   (if (and (#{:out-of-time :out-of-tokens} (:game-state lobby))
            (= :werewords (:game-mode lobby))
-           (seated? (get-in lobby [:players voter-auth])))
-    (let [lobby (update lobby :village-votes conj target-auth)
-          ;; everyone seated votes in the village round, including offline players
-          expected (seated-count lobby)]
+           (seated? (get-in lobby [:players voter-auth]))
+           (not (contains? (:werewolves lobby) voter-auth))
+           (seated? (get-in lobby [:players target-auth])))
+    (let [lobby (assoc-in lobby [:village-votes voter-auth] target-auth)
+          expected (count (village-voters lobby))]
       (if (>= (count (:village-votes lobby)) expected)
         (-> lobby (store-vote-result :village) (assoc :game-state :end-game))
         lobby))
@@ -812,14 +897,17 @@
 
 (defn wolf-vote
   "A werewolf secretly votes for the suspected seer (used when the word WAS
-  guessed). When all wolves have voted, resolve the end."
+  guessed). A later vote from the same wolf replaces their earlier target. When
+  all seated wolves have voted, resolve the end."
   [lobby voter-auth target-auth]
   (if (and (= (:game-state lobby) :word-guessed)
            (= :werewords (:game-mode lobby))
            (contains? (:werewolves lobby) voter-auth)
-           (seated? (get-in lobby [:players voter-auth])))
-    (let [lobby (update lobby :wolf-votes conj target-auth)]
-      (if (>= (count (:wolf-votes lobby)) (count (:werewolves lobby)))
+           (seated? (get-in lobby [:players voter-auth]))
+           (seated? (get-in lobby [:players target-auth])))
+    (let [lobby (assoc-in lobby [:wolf-votes voter-auth] target-auth)
+          expected (count (filter #(seated? (get-in lobby [:players %])) (:werewolves lobby)))]
+      (if (>= (count (:wolf-votes lobby)) expected)
         (-> lobby (store-vote-result :wolf) (assoc :game-state :end-game))
         lobby))
     lobby))
@@ -890,5 +978,6 @@
            :maybe-tokens (:max-maybe-tokens lobby start-maybe-tokens)
            :discard-tokens (:max-discard-tokens lobby start-discard-tokens)
            :round-started-at-ms nil :round-deadline-ms nil
-           :village-votes [] :wolf-votes [] :vote-result nil :winner nil
+           :vote-started-at-ms nil :vote-deadline-ms nil
+           :village-votes {} :wolf-votes {} :vote-result nil :winner nil
            :settings {:minutes (:timer-minutes lobby) :seconds 0})))

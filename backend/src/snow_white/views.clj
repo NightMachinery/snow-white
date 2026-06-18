@@ -27,6 +27,26 @@
 (defn- word-revealed? [lobby]
   (#{:word-guessed :out-of-time :out-of-tokens :end-game} (:game-state lobby)))
 
+(defn- wolves-public? [lobby]
+  (#{:word-guessed :end-game} (:game-state lobby)))
+
+(defn- vote-targets [votes]
+  (vec (if (map? votes) (vals votes) votes)))
+
+(defn- seated-auths [lobby]
+  (->> (:players lobby)
+       (filter (fn [[_ p]] (game/seated? p)))
+       (map key)))
+
+(defn- seated-wolves [lobby]
+  (filter #(game/seated? (get-in lobby [:players %])) (:werewolves lobby)))
+
+(defn- village-vote-expected [lobby]
+  (count (remove (set (:werewolves lobby)) (seated-auths lobby))))
+
+(defn- wolf-vote-expected [lobby]
+  (count (seated-wolves lobby)))
+
 (defn- redact-player
   "Strip hidden role/migration facts unless the recipient may see them."
   [lobby recipient auth player]
@@ -34,6 +54,8 @@
         (or (= auth recipient)                ; your own role
             (ended? lobby)                    ; post-game reveal
             (:public-role player)             ; late-seated public Villagers
+            ;; Werewolves become public during the Seer-finding vote.
+            (and (wolves-public? lobby) (= (:role player) :werewolf))
             ;; werewolves see each other during the game
             (and (= (get-in lobby [:players recipient :role]) :werewolf)
                  (= (:role player) :werewolf)))
@@ -58,15 +80,21 @@
         ;; everyone sees wolves after the reveal.
         (assoc :seer (when reveal-secrets? (:seer lobby)))
         (assoc :werewolves (if (or reveal-secrets?
+                                   (wolves-public? lobby)
                                    (= :werewolf (get-in lobby [:players recipient :role])))
                              (:werewolves lobby)
                              #{}))
+        (assoc :village-votes (vote-targets (:village-votes lobby)))
+        (assoc :village-vote-expected (village-vote-expected lobby))
+        (assoc :wolf-vote-expected (wolf-vote-expected lobby))
         ;; wolf votes are secret until end-game.
-        (assoc :wolf-votes (if reveal-secrets? (:wolf-votes lobby) []))
+        (assoc :wolf-votes (if reveal-secrets? (vote-targets (:wolf-votes lobby)) []))
         ;; tell the recipient their own private facts explicitly for convenience
         (assoc :you {:auth-id recipient
                      :migration-token (get-in lobby [:auth->migration recipient])
                      :role (get-in lobby [:players recipient :role])
                      :is-mayor (= recipient (:mayor lobby))
                      :can-moderate (game/can-moderate? lobby recipient)
-                     :knows-word (knows-word? lobby recipient)}))))
+                     :knows-word (knows-word? lobby recipient)
+                     :village-vote (get-in lobby [:village-votes recipient])
+                     :wolf-vote (get-in lobby [:wolf-votes recipient])}))))

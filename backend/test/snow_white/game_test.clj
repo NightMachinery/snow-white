@@ -10,6 +10,8 @@
           (g/new-lobby :p0 "test")
           (range n)))
 
+(declare into-question-round)
+
 (deftest joining-and-seating
   (let [l (lobby-with-players 4)]
     (is (= 4 (count (:players l))))
@@ -172,6 +174,66 @@
     (is (= :word-guessed (:game-state l))
         "offline seated wolves remain in the wolf vote quorum")
     (is (= :end-game (:game-state (g/wolf-vote l offline-wolf (:seer l)))))))
+
+
+(deftest village-vote-excludes-wolves-and-can-change-before-quorum
+  (let [l (-> (lobby-with-players 5)
+              g/start-game
+              (assoc :game-state :out-of-time
+                     :vote-started-at-ms 1000
+                     :vote-deadline-ms 301000))
+        wolf (first (:werewolves l))
+        non-wolves (vec (remove (:werewolves l) (keys (:players l))))
+        l1 (g/village-vote l wolf (first non-wolves))]
+    (is (= {} (:village-votes l1)) "wolves do not vote in the find-wolves stage")
+    (let [voter (first non-wolves)
+          target1 wolf
+          target2 (second non-wolves)
+          changed (-> l1
+                      (g/village-vote voter target1)
+                      (g/village-vote voter target2))]
+      (is (= {voter target2} (:village-votes changed))
+          "a later vote from the same voter replaces the previous target")
+      (let [finished (reduce (fn [acc voter] (g/village-vote acc voter wolf))
+                             changed
+                             (rest non-wolves))]
+        (is (= :end-game (:game-state finished)))
+        (is (= (count non-wolves) (count (:village-votes finished))))))))
+
+(deftest wolf-vote-can-change-before-quorum-and-counts-map-values
+  (with-redefs [rand-nth first]
+    (let [l (-> (lobby-with-players 8)
+                g/start-game
+                (assoc :game-state :word-guessed))
+          wolves (vec (:werewolves l))
+          wolf (first wolves)
+          first-target (:seer l)
+          second-target (first (remove #{first-target wolf} (keys (:players l))))
+          changed (-> l
+                      (g/wolf-vote wolf first-target)
+                      (g/wolf-vote wolf second-target))]
+      (is (= {wolf second-target} (:wolf-votes changed)))
+      (let [finished (reduce (fn [acc voter] (g/wolf-vote acc voter first-target))
+                             changed
+                             (rest wolves))]
+        (is (= :end-game (:game-state finished)))
+        (is (= (frequencies (vals (:wolf-votes finished)))
+               (get-in finished [:vote-result :counts])))))))
+
+(deftest vote-deadline-is-five-minutes-when-voting-begins
+  (let [[l mayor askers] (into-question-round)
+        guessed (-> l
+                    (g/ask-question (first askers) "Correct?")
+                    (g/answer-question mayor :correct))
+        timed-out (g/timeout l)
+        out-of-tokens (-> l
+                          (assoc :tokens 1)
+                          (g/ask-question (first askers) "No?")
+                          (g/answer-question mayor :no))]
+    (doseq [vote-lobby [guessed timed-out out-of-tokens]]
+      (is (number? (:vote-started-at-ms vote-lobby)))
+      (is (= (* 5 60 1000)
+             (- (:vote-deadline-ms vote-lobby) (:vote-started-at-ms vote-lobby)))))))
 
 (deftest reset-clears-round
   (let [l (-> (lobby-with-players 5) g/start-game (g/reset-game))]
@@ -424,6 +486,59 @@
               (g/answer-question mayor :discard))]
     (is (= "Older?" (:text (last (:question-log l)))))
     (is (= ["Newer?"] (mapv :text (:questions l))))))
+
+
+(deftest mayor-can-edit-last-answer-during-question-round
+  (let [[l mayor askers] (into-question-round)
+        a (first askers)
+        b (second askers)
+        l (-> l
+              (g/ask-question a "Older?")
+              (g/ask-question b "Current?")
+              (g/answer-question mayor :yes))
+        edited (g/edit-last-answer l mayor)]
+    (is (= ["Older?" "Current?"] (mapv :text (:questions edited)))
+        "the last answered question returns to the front and current head stays next")
+    (is (empty? (:answered edited)))
+    (is (empty? (:question-log edited)))
+    (is (= g/start-tokens (:tokens edited)) "yes/no cost is refunded")
+    (is (empty? (get-in edited [:players a :tokens :yes])))))
+
+(deftest mayor-edit-last-answer-is-blocked-outside-question-round-and-for-self-discard
+  (let [[l mayor askers] (into-question-round)
+        asker (first askers)
+        l (-> l
+              (g/ask-question asker "Never mind")
+              (g/discard-own-question asker))]
+    (is (= l (g/edit-last-answer l mayor)) "self-discard is not a mayor answer to correct")
+    (let [answered (-> l
+                       (g/ask-question asker "Mayor answer")
+                       (g/answer-question mayor :no))]
+      (is (= answered (g/edit-last-answer answered asker)) "non-Mayor cannot correct")
+      (is (= (assoc answered :game-state :out-of-time)
+             (g/edit-last-answer (assoc answered :game-state :out-of-time) mayor))
+          "correction is question-round only"))))
+
+(deftest mayor-edit-last-answer-refunds-special-answer-costs
+  (let [[l mayor askers] (into-question-round)
+        asker (first askers)
+        maybe-l (-> l
+                    (assoc :shared-maybe-pool false)
+                    (g/ask-question asker "Maybe?")
+                    (g/answer-question mayor :maybe)
+                    (g/edit-last-answer mayor))
+        discard-l (-> l
+                      (g/ask-question asker "Discard?")
+                      (g/answer-question mayor :discard)
+                      (g/edit-last-answer mayor))
+        soft-l (-> l
+                   (g/ask-question asker "Close?")
+                   (g/answer-question mayor :so-close)
+                   (g/edit-last-answer mayor))]
+    (is (= g/start-maybe-tokens (:maybe-tokens maybe-l)))
+    (is (= g/start-discard-tokens (:discard-tokens discard-l)))
+    (is (= g/start-tokens (:tokens soft-l)))
+    (is (nil? (:so-close soft-l)))))
 
 (deftest mod-seating-mid-game-newcomer-makes-public-villager
   (let [[l _ _] (into-question-round)

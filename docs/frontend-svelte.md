@@ -231,15 +231,19 @@ needs the shared history: question round, vote screens, and end-game. Because th
 backend records both answered and discarded questions, the component does not
 reconstruct history from pending questions or token counters.
 
-`Timer.svelte` now derives remaining time from `lobby.round-deadline-ms`. This is
-more robust than anchoring the countdown when the component receives a snapshot:
-the server sets the deadline once at word pick, and later broadcasts simply update
-the display without resetting the round.
+`Timer.svelte` derives remaining time from a server deadline. During the question
+round it uses `lobby.round-deadline-ms`; during voting, `VoteScreen` passes
+`lobby.vote-deadline-ms`. This is more robust than anchoring the countdown when
+the component receives a snapshot: the server sets each deadline once, and later
+broadcasts simply update the display without resetting the timer.
 
-Public role badges are snapshot-driven. Components do not decide whether a role
-should be public; they simply render `player.role` when the redacted lobby view
-contains one. That means hidden dealt roles stay absent, while late mod-seated
-Villagers and end-game roles appear automatically.
+Public role badges and vote selections are snapshot-driven. Components do not
+choose which roles are public; they render `player.role` when the redacted lobby
+view contains one. That means hidden dealt roles stay absent, while late
+mod-seated Villagers, public Werewolves during the Seer vote, and end-game roles
+appear automatically. Likewise, `VoteScreen` reads `lobby.you.village-vote` /
+`lobby.you.wolf-vote` so a refresh can restore the player's current selected
+choice.
 
 ## Migration links and moderator controls
 

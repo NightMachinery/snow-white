@@ -56,10 +56,11 @@ then immediately broadcasts a `:lobby/state` to everyone in the room.
   has reached a reveal state (`:word-guessed`, `:out-of-time`, `:out-of-tokens`) or `:end-game`.
   In Classic mode there are no Seers/Wolves, so only the Mayor sees the word during play.
 - A player's `:role` — `nil` for others until end-game, except Wolves see each
-  other and mod-seated late Villagers have a public `:villager` role.
-- `:seer`, `:wolf-votes` — empty/`nil` until end-game. `:werewolves` is shown to Wolves during play and to everyone at end-game.
+  other, Wolves are public during `:word-guessed`, and mod-seated late Villagers
+  have a public `:villager` role.
+- `:seer`, `:wolf-votes` — empty/`nil` until end-game. `:werewolves` is shown to Wolves during play, to everyone during the `:word-guessed` Seer vote, and to everyone at end-game.
 - `:you` — a convenience block of your own private facts:
-  `{:auth-id :migration-token :role :is-mayor :can-moderate :knows-word}`.
+  `{:auth-id :migration-token :role :is-mayor :can-moderate :knows-word :village-vote :wolf-vote}`.
 - `:available-wordpacks`, `:selected-wordpacks`, `:game-mode`, and `:custom-word-mode` are public room settings.
   Wordpack metadata contains `:id`, `:name`, and `:word-count`, never the hidden
   word list itself.
@@ -72,7 +73,9 @@ The lobby snapshot also includes:
 - `:preferred-mayor` — auth-id a mod picked as preferred next Mayor, or `nil`.
 - `:custom-word-mode` — when true, Mayor types the word and `:words` is empty for the round.
 - `:max-discard-tokens` / `:discard-tokens` — configured and live Mayor discard budget.
-- `:round-started-at-ms` / `:round-deadline-ms` — server-anchored timer data; clients count down from the deadline instead of resetting on every snapshot.
+- `:round-started-at-ms` / `:round-deadline-ms` — server-anchored question-round timer data; clients count down from the deadline instead of resetting on every snapshot.
+- `:vote-started-at-ms` / `:vote-deadline-ms` — server-anchored five-minute voting timer data.
+- `:village-vote-expected` / `:wolf-vote-expected` — eligible-voter counts for the current vote UI.
 - `:question-log` — answered and discarded questions in chronological order. Discard entries use `:answer :discard` and `:discarded-by :mayor|:self`.
 - `:vote-result` — end-game vote summary `{:mode :counts :leaders :selected :randomized?}`. Ties are resolved server-side by sampling uniformly among tied leaders.
 - Player `:public-role true` marks a role that is intentionally visible before final reveal, currently used for no-role spectators whom mods seat mid-game as public Villagers.
@@ -111,8 +114,9 @@ remain strings; enum-like values such as `:type` and `:answer` are keywords.
 | `:game/edit` | `:text` | Revise the text of *your own* pending question. |
 | `:game/discard-own` | — | Withdraw your own unanswered pending question for free; it remains in the question log. |
 | `:game/answer` | `:answer` | (Mayor) `:yes :no :maybe :so-close :way-off :correct :discard`. |
-| `:game/vote-village` | `:target` | Vote for a suspected Wolf (word not guessed in Werewords). No-op in Classic. |
-| `:game/vote-wolf` | `:target` | (Wolf) Vote for the suspected Seer (word guessed in Werewords). No-op in Classic. |
+| `:game/edit-last-answer` | — | (Mayor) During question round only, undo the last Mayor answer/discard, refund its cost, and restore that question to the front of the queue. |
+| `:game/vote-village` | `:target` | Seated non-Wolf vote for a suspected Wolf (word not guessed in Werewords). A later vote replaces the same voter's earlier target. No-op in Classic. |
+| `:game/vote-wolf` | `:target` | (Wolf) Vote for the suspected Seer (word guessed in Werewords). A later vote replaces the same wolf's earlier target. No-op in Classic. |
 | `:game/finish-vote` | — | (mod) End the current vote stage with the votes already cast. |
 | `:game/timeout` | — | (mod) Timer expired. |
 | `:game/reset` | — | (mod or Mayor) Back to the lobby. |

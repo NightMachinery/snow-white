@@ -29,11 +29,29 @@
         (let [view (views/lobby-view (assoc l :game-state state) recipient)]
           (is (= "apple" (:chosen-word view)))
           (is (nil? (:seer view)))
-          (is (empty? (:werewolves view)))
           (is (empty? (:wolf-votes view)))
-          (is (nil? (some (fn [[auth p]]
-                            (when (and (not= auth recipient) (:role p)) [auth (:role p)]))
-                          (:players view)))))))))
+          (if (= :word-guessed state)
+            (do
+              (is (= (:werewolves l) (:werewolves view)))
+              (doseq [wolf (:werewolves l)]
+                (is (= :werewolf (get-in view [:players wolf :role])))))
+            (do
+              (is (empty? (:werewolves view)))
+              (is (nil? (some (fn [[auth p]]
+                                (when (and (not= auth recipient) (:role p)) [auth (:role p)]))
+                              (:players view)))))))))))
+
+
+(deftest recipient-view-includes-own-vote-target-only
+  (let [[l recipient] (revealing-lobby)
+        other (first (remove #{recipient} (keys (:players l))))
+        l (assoc l
+                 :game-state :out-of-time
+                 :village-votes {recipient :p0 other :p1})
+        view (views/lobby-view l recipient)]
+    (is (= :p0 (get-in view [:you :village-vote])))
+    (is (nil? (get-in view [:you :wolf-vote])))
+    (is (= [:p0 :p1] (:village-votes view)))))
 
 (deftest public-late-villager-role-is-visible-before-end-game
   (let [[l recipient] (revealing-lobby)

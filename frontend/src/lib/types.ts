@@ -72,6 +72,8 @@ export interface You {
 	'is-mayor': boolean;
 	'can-moderate': boolean;
 	'knows-word': boolean;
+	'village-vote'?: string | null;
+	'wolf-vote'?: string | null;
 }
 
 /** A full (already redacted-for-you) lobby snapshot. */
@@ -122,8 +124,12 @@ export interface Lobby {
 	'discard-tokens': number;
 	'round-started-at-ms': number | null;
 	'round-deadline-ms': number | null;
+	'vote-started-at-ms': number | null;
+	'vote-deadline-ms': number | null;
 	'village-votes': string[];
 	'wolf-votes': string[];
+	'village-vote-expected'?: number;
+	'wolf-vote-expected'?: number;
 	'vote-result': VoteResult | null;
 	winner: Winner;
 	you: You;

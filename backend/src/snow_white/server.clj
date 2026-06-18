@@ -120,6 +120,7 @@
           :game/edit     (reg/update-lobby! lobby game/edit-question me (:text msg))
           :game/discard-own (reg/update-lobby! lobby game/discard-own-question me)
           :game/answer   (reg/update-lobby! lobby game/answer-question me (:answer msg))
+          :game/edit-last-answer (reg/update-lobby! lobby game/edit-last-answer me)
           :game/timeout  (reg/update-lobby! lobby mod-gate me game/timeout)
           :game/vote-village (reg/update-lobby! lobby game/village-vote me (:target msg))
           :game/vote-wolf    (reg/update-lobby! lobby game/wolf-vote me (:target msg))

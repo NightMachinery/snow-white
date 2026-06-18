@@ -17,6 +17,7 @@
 		lobby,
 		selectable = false,
 		selected = false,
+		hideActions = false,
 		onpick,
 		onbench,
 		onseat,
@@ -28,6 +29,7 @@
 		lobby: Lobby;
 		selectable?: boolean;
 		selected?: boolean;
+		hideActions?: boolean;
 		onpick?: (authId: string) => void;
 		onbench?: (authId: string) => void;
 		onseat?: (authId: string) => void;
@@ -39,7 +41,7 @@
 	const isYou = $derived(player['auth-id'] === lobby.you['auth-id']);
 	const initial = $derived((player['display-name'] || '?').charAt(0).toUpperCase());
 	const migrationToken = $derived(player['migration-token'] ?? (isYou ? lobby.you['migration-token'] : null));
-	const hasActions = $derived(Boolean(onbench || onseat || onmayor || onpromote || ondemote || migrationToken));
+	const hasActions = $derived(!hideActions && Boolean(onbench || onseat || onmayor || onpromote || ondemote || migrationToken));
 	const mayorTooltip = $derived(
 		lobby['preferred-mayor'] === player['auth-id'] ? 'Clear preferred Mayor' : 'Prefer as next Mayor'
 	);

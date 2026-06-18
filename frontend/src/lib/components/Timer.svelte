@@ -3,7 +3,11 @@
 	import { conn } from '$lib/ws.svelte';
 	import Clock from '@lucide/svelte/icons/clock';
 
-	let { lobby }: { lobby: Lobby } = $props();
+	let {
+		lobby,
+		deadlineMs = undefined,
+		expireCommand = 'game/timeout'
+	}: { lobby: Lobby; deadlineMs?: number | null; expireCommand?: 'game/timeout' | 'game/finish-vote' } = $props();
 
 	// The server anchors the deadline when the Mayor picks a word. Snapshots after
 	// answers reuse the same deadline, so the countdown does not reset.
@@ -14,17 +18,22 @@
 		return () => clearInterval(id);
 	});
 
-	const deadline = $derived(lobby['round-deadline-ms'] ?? Date.now() + lobby['timer-minutes'] * 60_000);
+	const deadline = $derived(deadlineMs ?? lobby['round-deadline-ms'] ?? Date.now() + lobby['timer-minutes'] * 60_000);
 	const remaining = $derived(Math.max(0, deadline - now));
 	const mm = $derived(Math.floor(remaining / 60_000));
 	const ss = $derived(Math.floor((remaining % 60_000) / 1000));
 	const low = $derived(remaining < 15_000);
 
 	let fired = $state(false);
+	let lastDeadline = $state<number | null>(null);
 	$effect(() => {
+		if (lastDeadline !== deadline) {
+			lastDeadline = deadline;
+			fired = false;
+		}
 		if (remaining === 0 && !fired && lobby.you['can-moderate']) {
 			fired = true;
-			conn.send({ type: 'game/timeout' });
+			conn.send({ type: expireCommand });
 		}
 	});
 </script>

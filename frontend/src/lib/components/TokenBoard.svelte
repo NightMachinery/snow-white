@@ -5,6 +5,7 @@
 	let { lobby }: { lobby: Lobby } = $props();
 	const isMayor = $derived(lobby.you['is-mayor']);
 	const head = $derived(lobby.questions[0]);
+	const canEditLast = $derived(lobby['game-state'] === 'question-round' && lobby.answered.length > 0);
 
 	const buttons = [
 		{ a: 'yes', label: 'Yes', cls: 'bg-forest text-white' },
@@ -17,6 +18,9 @@
 
 	function answer(a: string) {
 		conn.send({ type: 'game/answer', answer: a });
+	}
+	function editLastAnswer() {
+		conn.send({ type: 'game/edit-last-answer' });
 	}
 </script>
 
@@ -57,6 +61,14 @@
 			<p class="rounded-2xl border border-dashed border-frost p-4 text-center text-mist dark:border-white/10">
 				No questions waiting — players are thinking.
 			</p>
+		{/if}
+		{#if canEditLast}
+			<button
+				onclick={editLastAnswer}
+				class="self-start rounded-lg border border-frost px-3 py-1.5 text-xs font-medium text-mist transition hover:bg-frost dark:border-white/10 dark:hover:bg-white/10"
+			>
+				Edit last answer
+			</button>
 		{/if}
 	{/if}
 </div>

@@ -66,11 +66,15 @@ rest of the table cooperates to guess it.
      - *“So close / Way off” cost a token* (default **on**) — when off, those are free.
      - *One question at a time* (default **off**) — when on, no new question may be
        queued while one is still unanswered.
-   - The pending queue is **FIFO**: first asked, first answered. If a player asks
-     the exact target word (case-insensitive, ignoring trailing punctuation), it
-     is recorded immediately as **Correct** without spending a token. A player
-     may withdraw their own unanswered question for free; both Mayor-discarded
-     and self-withdrawn questions remain visible in the question log.
+   - The pending queue is **FIFO**: first asked, first answered. If the Mayor
+     catches a mistaken answer while the question round is still active, **Edit
+     last answer** removes the last Mayor answer from the log, refunds its cost,
+     and puts that question back at the front of the queue. The question that was
+     waiting next stays next. If a player asks the exact target word
+     (case-insensitive, ignoring trailing punctuation), it is recorded immediately
+     as **Correct** without spending a token. A player may withdraw their own
+     unanswered question for free; both Mayor-discarded and self-withdrawn
+     questions remain visible in the question log.
    - Players who join mid-round start as spectators. If a mod seats a no-role
      spectator during the game, they join as a **public Villager** and everyone
      sees that Villager badge.
@@ -78,12 +82,15 @@ rest of the table cooperates to guess it.
      the timer expires.
 4. **Voting / resolution** — in Classic, the game ends immediately: the table wins
    if the word was guessed and loses if time/tokens ran out. In Werewords, the
-   target word is revealed to everyone as soon as voting begins, but hidden roles
-   stay secret until final resolution.
-   - If the word **was guessed**: the **Wolves** secretly vote for who they think
-     the **Seer** is.
-   - If the word was **not guessed**: **everyone** votes for who they think a
-     **Wolf** is.
+   target word is revealed to everyone as soon as voting begins. Voting has a
+   five-minute countdown, but still resolves immediately once every eligible voter
+   has voted; mods can force-end the vote early with the current votes. Voters may
+   change their selection until the vote resolves.
+   - If the word **was guessed**: the **Wolves** vote for who they think the
+     **Seer** is. The Wolves are publicly badged in this stage so everyone knows
+     who is hunting the Seer; the Seer stays hidden.
+   - If the word was **not guessed**: seated **non-Wolves** vote for who they
+     think a **Wolf** is. Wolves wait this vote out.
 5. **Resolution** (see win conditions below).
 
 ## Win conditions
@@ -96,7 +103,7 @@ Werewords uses hidden-team win conditions:
 | Situation | Vote | Wolves win if… | Village wins if… |
 | --- | --- | --- | --- |
 | Word **guessed** | Wolves → Seer | the resolved vote target is the Seer | the resolved vote target is not the Seer |
-| Word **not guessed** | All → a Wolf | the resolved vote target is **not** a wolf | the resolved vote target is a wolf |
+| Word **not guessed** | Non-Wolves → a Wolf | the resolved vote target is **not** a wolf | the resolved vote target is a wolf |
 
 If a vote has tied top targets, the server picks uniformly at random among those
 leaders and records the selected target so the end screen can show the tiebreak.
@@ -119,6 +126,6 @@ Village then outs a Wolf after any tiebreak.
 | Game mode + start minimum | `game/set-game-mode`, `game/start-game` |
 | Role deal (+2nd wolf >6) | `roles/deal-roles` |
 | Mayor eligibility + pick | `roles/choose-mayor`, preferred Mayor rejection sampling in `game/start-game`, `game/mayor-pick` |
-| Token economy | `game/answer-question` |
+| Token economy + Mayor correction | `game/answer-question`, `game/edit-last-answer` |
 | End-state transitions | `game/answer-question`, `game/timeout` |
 | Win resolution | `roles/resolve-winner` (pure, fully unit-tested) |
